@@ -131,12 +131,7 @@ Module[{PComb},
 (*Markov trace*)
 PTr[TL[c_, m_, m_, v_]] := tlEliminateLoops[c, v Times@@Table[P[i,i+m],{i,m}]]/c^m;
 
-Module[{PHeld},
-	(*For renumbering, PHeld keeps the P rules from applying while the expression
-	is being rewritten.*)
-	tlRenumber[v_, f_Function] :=
-		v /. p_P:>(f/@PHeld@@p) /. p_PHeld:>P@@p;
-];
+tlRenumber[v_, f_Function] := v /. p_P:>(f/@p);
 
 PDual[TL[c_,m_,n_,v_]] := TL[c, n, m, tlRenumber[v, If[#<=n, #+m, #-n]&]];
 	
@@ -263,11 +258,7 @@ Module[{FComb},
 PTr[Flow[Q_,m_,m_,v_]] :=
 	flEliminateLoops[Q, v Times@@Table[FV[i,i+m],{i,m}]]/(Q-1)^m;
 
-Module[{FHeld},
-	(*FHeld keeps the FV's from simplifying during the renumbering process.*)
-	flRenumber[v_, f_Function] :=
-		v /. fv_FV:>(f/@FHeld@@fv) /. fv_FHeld:>FV@@fv;
-];
+flRenumber[v_, f_Function] := v /. fv_FV:>(f/@fv);
 
 PDual[Flow[Q_,m_,n_,v_]] :=
 	Flow[Q, n, m, flRenumber[v, If[#<=n, #+m, #-n]&]];
@@ -369,16 +360,10 @@ SimplifyDP[DP[t_,m_,n_,v_]] := DP[t,m,n,
 (*TODO should this be normalized?*)
 PTr[DP[t_,m_,m_,v_]] := dpEliminateEmpties[t, v Times@@Table[DS[i,i+m],{i,m}]]/t^m;
 
-Module[{DSHeld},
-	(*For renumbering, DSHeld keeps the DS rules from applying in
-	intermediate steps.*)
-	dsRenumber[v_, f_Function] :=
-		v /. d_DS:>(f/@DSHeld@@d) /. d_DSHeld:>DS@@d;
-];
+dsRenumber[v_, f_Function] := v /. d_DS:>(f/@d);
 
 PDual[DP[t_,m_,n_,v_]] := DP[t,n,m,dsRenumber[v, If[#<=n, #+m, #-n]&]];
 
-	
 DP /: DP[t_, m1_, n1_, v1_] \[CircleTimes] DP[t_, m2_, n2_, v2_] :=
 	DP[t, m1+m2, n1+n2,
 		dsRenumber[v1, If[#<=n1, #, #+n2]&]
@@ -414,6 +399,46 @@ DP /: MakeBoxes[fl:DP[t_,m_,n_,v_], f:StandardForm] :=
 		]];
 
 DPMakeBasis[t_,m_,n_] := DP[t,m,n,Times@@DS@@@#]&/@SetPartitions[m+n];
+
+End[];
+
+
+(* ::Section:: *)
+(*Planar diagrams*)
+
+
+PD::usage="PD[planar diagram elements..]";
+V::usage="V[i,j,..] is a flat vertex in a PD with edge labels i,j,.. in
+counterclockwise order.";
+X::usage="X[i,j,k,l] is a crossing with V[i,k] the understrand and V[j,l]
+the overstrand.";
+VirtX::usage="VirtX[i,j,k,l] is a virtual crossing of V[i,k] and V[j,l].";
+
+
+Begin["`Private`PD`"];
+
+End[];
+
+
+(* ::Section:: *)
+(*Abstract category*)
+
+
+AbId::usage="AbId[n] is an abstract identity element.";
+AbB::usage="AbB[m,n] is a braid from m\[CircleTimes]n to n\[CircleTimes]m."
+AbBInv::usage="AbBInv[m,n] is the inverse of AbB[n,m].";
+AbCup::usage="AbCup[n] is nested cups from 0 to n\[CircleTimes]n.";
+AbCap::usage="AbCap[n] is nested caps from n\[CircleTimes]n to 0.";
+AbV::usage="AbV[m,n] is a degree-(m+n) vertex from n to m.";
+
+
+Begin["`Private`Ab`"];
+
+DecomposeAbB[AbB[n_,0]|AbBInv[n_,0]|AbB[0,n_]|AbBInv[0,n_]] := AbId[n];
+DecomposeAbB[AbB[1,1]] = AbB[1,1];
+DecomposeAbB[AbB[n_,m_]] :=
+
+DecomposeBraids[x_]
 
 End[];
 
