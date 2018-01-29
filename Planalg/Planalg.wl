@@ -18,7 +18,7 @@ QuantumInt::usage="QuantumInt[q, n] gives [n]_q.";
 SetPartitions::usage="SetPartitions[list] gives all set partitions of list.
 SetPartitions[n] = SetPartitions[Range[n]].";
 
-MakeGramian::usage="MakeGramian[basis] gives the Gram matrix for the basis.";
+Gramian::usage="Gramian[basis] gives the Gram matrix for the basis.";
 
 
 Begin["`Private`"];
@@ -38,7 +38,7 @@ SetPartitions[{x_,xs___}] :=
 		SetPartitions[{xs}]];
 SetPartitions[n_Integer] := SetPartitions[Range[n]];
 
-MakeGramian[basis_List] := Outer[PTr[#1**PDual@#2]&, basis, basis];
+Gramian[basis_List] := Outer[PTr[#1**PDual@#2]&, basis, basis];
 
 End[];
 
