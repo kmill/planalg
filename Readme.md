@@ -19,7 +19,7 @@ Then, evaluate ``<<Planalg` `` in Mathematica to load the application.
 
 Calculate the determinant of the Gram matrix for the chromatic algebra on three strands:
 ```
-	basis = MakeFlowBasis[Q, 3, 3, Virtual -> False];
+	basis = FlowMakeBasis[Q, 3, 3, Virtual -> False];
 	gram = MakeGramian[bas];
 	Det[gram] // Factor
 ```
