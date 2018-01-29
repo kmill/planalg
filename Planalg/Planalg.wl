@@ -38,7 +38,13 @@ SetPartitions[{x_,xs___}] :=
 		SetPartitions[{xs}]];
 SetPartitions[n_Integer] := SetPartitions[Range[n]];
 
-Gramian[basis_List] := Outer[PTr[#1**PDual@#2]&, basis, basis];
+(*Adapted from a one-liner by acl and Mr.Wizard at
+https://mathematica.stackexchange.com/questions/7887/best-way-to-create-symmetric-matrices *)
+CreateSymmetric[f_Function, basis_] :=
+	With[{upper = Table[f@@basis[[{i,j}]], {i,Length@basis}, {j,i}]},
+		Join[upper, Rest /@ Flatten[upper, {2}], 2]];
+
+Gramian[basis_List] := CreateSymmetric[PTr[#1**PDual@#2]&, basis];
 
 End[];
 
