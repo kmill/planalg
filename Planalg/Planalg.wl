@@ -227,6 +227,8 @@ FlowMakeBasis::usage="FlowMakeBasis[Q,m,n,Virtual->boolean] gives a basis for th
 homset from n to m over \[DoubleStruckCapitalC](c). Virtual is true by default.";
 Options[FlowMakeBasis] = {Virtual->True};
 
+FlowId::usage="Flow[Q,m] is the identity in Flow[Q,m,m,...].";
+
 
 Begin["`Private`Flow`"];
 
@@ -276,6 +278,8 @@ Flow /: Flow[Q_,l_,m_,v2_] ** Flow[Q_,m_,n_,v1_] :=
 		* flRenumber[v1, If[#<=n, #, #+l]&]
 	] // SimplifyFlow;
 
+FlowId[Q_, n_] := Flow[Q, n, n, Times@@Table[FV[i, i+n], {i, n}]];
+
 flMakePic[m_,n_,diag_List] := Graphics[Join[
 	{LightRed, EdgeForm[Thin], Rectangle[{0, 0}, {2, Max[m,n]+1}], Black},
 	Join@@MapIndexed[flMakeVertPic[m, n, #2[[1]]/(1+Length@diag)*(1+Max[m,n]), #1]&,
@@ -317,6 +321,93 @@ FlowMakeBasis[Q_,m_,n_,OptionsPattern[]] :=
 			Select[SetPartitions[m+n], AllTrue[#, Length[#]>1&]&]],
 		Flow[Q,m,n,#]&/@flPlanarPartitions[Join[Range[n],Range[n+m,n+1,-1]]]
 	];
+
+End[];
+
+
+(* ::Section:: *)
+(*Deligne partition category*)
+
+
+DP::usage="DP[t,m,n,linear combination of DS's over \[DoubleStruckCapitalC](t)]";
+DS::usage="DS[...] is a subset of m+n";
+
+SimplifyDP::usage="SimplifyDP[DP[...]] puts the DP into normal form.";
+
+DPId::usage="DPId[t,n] gives the identity in DP[t,n,n,...].";
+
+DPMakeBasis::usage="DPMakeBasis[t,m,n] gives a basis for DP[t,m,n,...].";
+
+
+Begin["`Private`DP`"];
+
+ImpartLinearity[DP, DP[t_,m_,n_,#]&, DP[t,m,n,#]&];
+
+(*These rules make sense in the context of how composition works. DS[] will appear
+when there is an internal partition.*)
+SetAttributes[DS, {Orderless}];
+DS /: DS[a_, xs___] DS[a_, ys___] := DS[xs, ys];
+DS[a_,a_,xs___] := DS[xs];
+DS /: _DS^2 = DS[];
+
+SetAttributes[DPart,{Orderless}];
+DPart /: DPart[ss1___] DPart[ss2___] := DPart[ss1, ss2];
+
+dpEliminateEmpties[t_,v_] := Expand[v, _DS] /. DS[] -> t;
+
+SimplifyDP[DP[t_,m_,n_,v_]] := DP[t,m,n,
+	Collect[(dpEliminateEmpties[t, v] /. d_DS:>DPart@d), _DPart, FullSimplify]
+	 /. d_DPart:>Times@@d
+];
+
+(*TODO should this be normalized?*)
+PTr[DP[t_,m_,m_,v_]] := dpEliminateEmpties[t, v Times@@Table[DS[i,i+m],{i,m}]]/t^m;
+
+Module[{DSHeld},
+	(*For renumbering, DSHeld keeps the DS rules from applying in
+	intermediate steps.*)
+	dsRenumber[v_, f_Function] :=
+		v /. d_DS:>(f/@DSHeld@@d) /. d_DSHeld:>DS@@d;
+];
+
+PDual[DP[t_,m_,n_,v_]] := DP[t,n,m,dsRenumber[v, If[#<=n, #+m, #-n]&]];
+
+	
+DP /: DP[t_, m1_, n1_, v1_] \[CircleTimes] DP[t_, m2_, n2_, v2_] :=
+	DP[t, m1+m2, n1+n2,
+		dsRenumber[v1, If[#<=n1, #, #+n2]&]
+		* dsRenumber[v2, If[#<=n2, #+n1, #+n1+m1]&]
+	];
+
+DP /: DP[t_, l_, m_, v2_] ** DP[t_, m_, n_, v1_] :=
+	DP[t, l, n,
+		dsRenumber[v2, If[#<=m, #+l+n, #-m+n]&]
+		* dsRenumber[v1, If[#<=n, #, #+l]&]
+	] // SimplifyDP; (* must simplify to eliminate internal partitions *)
+
+DPId[t_, n_] := DP[t, n, n, Times@@Table[DS[i, i+n], {i, n}]];
+
+dpMakePic[m_,n_,diag_List] := Graphics[Join[
+	{LightRed, EdgeForm[Thin], Rectangle[{0, 0}, {2, Max[m,n]+1}], Black},
+	Join@@MapIndexed[dpMakeVertPic[m, n, #2[[1]]/(1+Length@diag)*(1+Max[m,n]), #1]&,
+		diag, {1}]
+]];
+dpMakeVertPic[m_,n_,y_,v_DS] := With[{
+	ipt = If[#<=n, {2,#}, {0,#-n}]&},
+	Append[Line[{ipt[#],{1,y}}]&/@List@@v, Disk[{1,y}, 0.08]]
+];
+DP /: MakeBoxes[fl:DP[t_,m_,n_,v_], f:StandardForm] :=
+	With[{v2 = Expand[v,_DS]
+			/.{fv_DS:>DPart@fv}
+			/.{fc_DPart:>dpMakePic[m,n,List@@fc]}},
+		With[{box = RowBox[{"DP", "[", RowBox[{
+				MakeBoxes[t,f], ",", MakeBoxes[m,f], ",", MakeBoxes[n,f], ",",
+				MakeBoxes[v2,f]
+			}], "]"}]},
+			InterpretationBox[box, t]
+		]];
+
+DPMakeBasis[t_,m_,n_] := DP[t,m,n,Times@@DS@@@#]&/@SetPartitions[m+n];
 
 End[];
 
