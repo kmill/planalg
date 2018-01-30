@@ -62,7 +62,10 @@ End[];
 (*Each monoidal category needs to implement CircleTimes (\[CircleTimes], typed as ESC c * ESC). Be careful that ** has higher precedence than \[CircleTimes].  The tensor operation is bottom-to-top if you imaging composition as being horizontal.*)
 
 
-SetAttributes[CircleTimes, {Flat, OneIdentity, Protected}];
+Unprotect[CircleTimes];
+ClearAll[CircleTimes];
+SetAttributes[CircleTimes, {Flat, OneIdentity}];
+Protect[CircleTimes];
 
 
 (* ::Section:: *)
@@ -78,6 +81,182 @@ PTr::usage="PTr[element of homset]. Calculates a trace depending on the category
 
 PDual::usage="PDual[element of homset]. Calculates a dual depending
 on the category.";
+
+
+(* ::Section:: *)
+(*Planar diagrams*)
+
+
+PD::usage="PD[planar diagram elements..]";
+V::usage="V[i,j,..] is a flat vertex in a PD with edge labels i,j,.. in
+counterclockwise order.";
+X::usage="X[i,j,k,l] is a crossing with V[i,k] the understrand and V[j,l]
+the overstrand.";
+VirtX::usage="VirtX[i,j,k,l] is a virtual crossing of V[i,k] and V[j,l].";
+
+PPath::usage="PPath[i,j] is a path from i to j, in case V[i,j] is different.";
+
+
+Begin["`Private`PD`"];
+
+End[];
+
+
+(* ::Subsection:: *)
+(*Example data*)
+
+
+FlatVertG::usage = "FlatVertG[name] gets an example planar diagram for a flat vertex graph";
+
+
+Begin["`Private`PD`"];
+FlatVertG["K3_1"] = PD[X[3,1,4,6],X[1,2,5,4],X[2,3,6,5]];
+FlatVertG["loop"] = PD[V[1,1]];
+FlatVertG["theta"] = PD[V[1,2,3],V[1,3,2]];
+FlatVertG["handcuff"] = PD[V[1,1,2],V[2,3,3]];
+FlatVertG["wedge"] = PD[V[1,1,2,2]];
+FlatVertG["wedgeover"] = PD[X[1,4,3,2],V[1,2,3,4]];
+FlatVertG["linked_handcuff"] = PD[X[7,1,6,2],X[3,7,2,5],V[1,3,4],V[4,5,6]];
+FlatVertG["k4"] = PD[V[1,2,4],V[2,3,5],V[3,1,6],V[4,5,6]];
+FlatVertG["k33"] = PD[X[9,6,5,11], V[1,4,5], V[1,6,2], V[2,7,3], V[3,8,4], V[7,9,10], V[8,10,11]];
+FlatVertG["k5"] = PD[V[1,2,3,4],V[4,7,12,13],V[13,17,19,20],V[20,18,14,8],V[8,9,5,1],X[6,2,5,10], X[11,7,3,6], X[16,17,12,11], X[19,16,15,18], X[14,15,10,9]];
+FlatVertG["K3_1_tunneled"] = PD[X[4,1,5,8], X[5,1,6,2], X[3,8,2,7], V[7,6,9], V[4,3,9]];
+FlatVertG["L4_1"] = PD[X[6,1,7,2], X[3,8,2,7], X[8,3,5,4], X[4,5,1,6]];
+End[];
+
+
+(* ::Section:: *)
+(*Abstract category*)
+
+
+(* ::Text:: *)
+(*This is supposed to be an abstract braided monoidal category with integer objects, but for simplicity the generator  object is self-dual.*)
+
+
+AbId::usage="AbId[n] is an abstract identity element.";
+AbB::usage="AbB[] is a braid from 1\[CircleTimes]1 to 1\[CircleTimes]1. (Right-handed crossing.)";
+AbBInv::usage="AbBInv[] is the inverse of AbB[].";
+AbTrans::usage="AbTrans[] is a transpose. (Virtual crossing.)";
+AbCup::usage="AbCup[] is a cup from 0 to 1\[CircleTimes]1.";
+AbCap::usage="AbCap[] is a cap from 1\[CircleTimes]1 to 0.";
+AbV::usage="AbV[m,n] is a degree-(m+n) vertex from n to m.";
+
+FromPD::usage="FromPD[pd] converts a planar diagram to a categorical expression.";
+
+AbGraphForm::usage="AbGraphForm[v] displays v in a 2D form.";
+
+
+Begin["`Private`Ab`"];
+
+AbId /: AbId[n_] \[CircleTimes] AbId[m_] := AbId[n+m];
+AbId /: AbId[0] \[CircleTimes] v_ := v;
+AbId /: v_ \[CircleTimes] AbId[0] := v;
+
+splitFrontier::badSplit="Invalid split for splitFrontier.";
+
+splitFrontier[frontier_List, p_List] := Replace[
+	SplitBy[frontier, MemberQ[p,#]&], {
+		{} :> {0, {}, 0, #&},
+		{a_}/;IntersectingQ[a,p] :> {0, a, 0, #&},
+		{a_,b_}/;IntersectingQ[a,p] :> {0, a, Length@b, Join[#,b]&},
+		{a_,b_}/;IntersectingQ[b,p] :> {Length@a, b, 0, Join[a,#]&},
+		{a_,b_,c_}/;IntersectingQ[b,p] :> {Length@a, b, Length@c, Join[a,#,c]&},
+		_ :> (Message[splitFrontier::badSplit]; $Failed)
+	}];
+
+calculateOpp[splitF_, p_] :=
+	Reverse[Join@@Reverse@Select[SplitBy[List@@p, MemberQ[splitF[[2]],#]&],
+								!IntersectingQ[splitF[[2]],#]&]];
+
+convert[frontier_List, v_V] :=
+	With[{f=splitFrontier[frontier, List@@v]},
+		With[{opp=calculateOpp[f, v]},
+			{f[[4]][opp],
+				AbId[f[[1]]] \[CircleTimes] AbV[Length@opp, Length@f[[2]]] \[CircleTimes] AbId[f[[3]]]}
+	]];
+
+activateX[{False,False,False,False},_] =
+	(AbId[1] \[CircleTimes] AbB[] \[CircleTimes] AbId[1]) ** (AbCup[] \[CircleTimes] AbCup[]);
+activateX[{True,False,False,False}|{False,False,True,False},_] =
+	(AbId[1] \[CircleTimes] AbB[]) ** (AbCup[] \[CircleTimes] AbId[1]);
+activateX[{False,True,False,False}|{False,False,False,True},_] =
+	(AbB[] \[CircleTimes] AbId[1]) ** (AbId[1] \[CircleTimes] AbCup[]);
+activateX[{True,True,False,False}|{False,False,True,True},_] = AbBInv[];
+activateX[{False,True,True,False}|{True,False,False,True},_] = AbB[];
+activateX[{True,True,True,False}|{True,False,True,True},_] =
+	(AbCap[] \[CircleTimes] AbId[1]) ** (AbId[1] \[CircleTimes] AbB[]);
+activateX[{False,True,True,True}|{True,True,False,True},_] =
+	(AbId[1] \[CircleTimes] AbCap[]) ** (AbB[] \[CircleTimes] AbId[1]);
+activateX[{True,True,True,True},1|3] =
+	(AbCap[] \[CircleTimes] AbCap[]) ** (AbId[1] \[CircleTimes] AbB[] \[CircleTimes] AbId[1]);
+activateX[{True,True,True,True},2|4] =
+	(AbCap[] \[CircleTimes] AbCap[]) ** (AbId[1] \[CircleTimes] AbBInv[] \[CircleTimes] AbId[1]);
+
+convert[frontier_List, x_X] :=
+	With[{
+		f=splitFrontier[frontier, List@@x],
+		xf=MemberQ[frontier,#]&/@List@@x
+	},
+	{f[[4]][calculateOpp[f, x]],
+		AbId[f[[1]]]
+			\[CircleTimes] activateX[xf, If[Length@f[[2]] > 0,
+								First@FirstPosition[x, f[[2,1]]]]]
+			\[CircleTimes] AbId[f[[3]]]}
+	];
+
+activateVirtX[0] = (AbId[1] \[CircleTimes] AbTrans[] \[CircleTimes] AbId[1]) ** (AbCup[] \[CircleTimes] AbCup[]);
+activateVirtX[1] = (AbId[1] \[CircleTimes] AbTrans[]) ** (AbCup[] \[CircleTimes] AbId[1]);
+activateVirtX[2] = AbTrans[];
+activateVirtX[3] = (AbCup[] \[CircleTimes] AbId[1]) ** (AbId[1] \[CircleTimes] AbTrans[]);
+activateVirtX[4] = (AbCap[] \[CircleTimes] AbCap[]) ** (AbId[1] \[CircleTimes] AbTrans[] \[CircleTimes] AbId[1]);
+
+convert[frontier_List, x_VirtX] :=
+	With[{
+		f=splitFrontier[frontier, List@@x],
+		xc=Count[x,_?(MemberQ[frontier,#]&)] },
+		
+	{f[[4]][calculateOpp[f,x]],
+		AbId[f[[1]]] \[CircleTimes] activateVirtX[xc] \[CircleTimes] AbId[f[[3]]]}
+	];
+
+activatePPath[0] = AbCup[];
+activatePPath[1] = AbId[1];
+activatePPath[2] = AbCap[];
+
+convert[frontier_List, p_PPath] :=
+	With[{
+		f=splitFrontier[frontier, List@@p],
+		pc=Count[p,_?(MemberQ[frontier,#]&)]},
+	{f[[4]][calculateOpp[f,p]],
+		AbId[f[[1]]] \[CircleTimes] activatePPath[pc] \[CircleTimes] AbId[f[[3]]]}
+	];
+
+FromPD::incomplete="Incomplete planar diagram.";
+FromPD[pd_PD] := Module[{make, fresh},
+	make[val_, {}, PD[]] := val;
+	make[_, _, PD[]] := (Message[FromPD::incomplete]; $Failed);
+	make[val_, frontier_, rest_] := With[{
+		pos=First@Ordering[Length@Complement[List@@#, frontier]+Length@Complement[frontier, List@@#]&/@rest,1]
+		},
+		With[{c=convert[frontier, rest[[pos]]]},
+			make[c[[2]] ** val, c[[1]], Delete[rest, pos]]]];
+	fresh = Max[List@@@List@@pd]+1;
+	make[NonCommutativeMultiply[], {}, pd //. {
+		h_[a___,i_,b___,i_,c___]:>With[{j=fresh++},Sequence@@{PPath[i,j],h[a,i,b,j,c]}]
+	}]
+];
+
+MakeBoxes[AbGraphForm[v_], StandardForm] := Module[{make},
+	make[mult_NonCommutativeMultiply] :=
+		GridBox[{make/@List@@mult},
+			RowAlignments->Center, ColumnLines->True];
+	make[tens_CircleTimes] := GridBox[{make[#]}&/@Reverse[List@@tens],
+								RowLines->True];
+	make[val_] := MakeBoxes[val, StandardForm];
+	make[v]
+];
+
+End[];
 
 
 (* ::Section:: *)
@@ -106,6 +285,13 @@ in TL[-q-q^-1,n,n,...]";
 TLMakeBasis::usage="TLMakeBasis[c,m,n,Virtual->boolean] gives a basis for the
 homset from n to m over \[DoubleStruckCapitalC](c). Virtual is false by default.";
 Options[TLMakeBasis] = {Virtual->False};
+
+KauffmanBracket::usage="KauffmanBracket[pd,A] or KauffmanBracket[abstract,A] is
+a functor from the abstract category to TL.  It gives the (unnormalized) Kauffman
+bracket for scalar-valued diagrams.";
+
+YamadaPoly::usage="YamadaPoly[pd,A] or YamadaPoly[abstract,A] is a functor from
+the abstract category to TL, coloring edges with the second Jones-Wenzl projector.";
 
 
 Begin["`Private`TL`"];
@@ -215,6 +401,50 @@ TLMakeBasis[c_,m_,n_,OptionsPattern[]] :=
 		TL[c,m,n,#]&/@tlAllPairs[m+n],
 		TL[c,m,n,#]&/@tlPlanPairs[Join[Range[n], Range[n+m, n+1, -1]]]
 	];
+
+KauffmanBracket::abv="Cannot handle vertices when colored by weight-1.";
+KauffmanBracket[v_] := Module[{A},
+	With[{kb=KauffmanBracket[v,A]/.{A->#}}, kb&]];
+KauffmanBracket[pd_PD, A_] := KauffmanBracket[FromPD[pd], A];
+KauffmanBracket[cat_,A_] := With[{q2=QuantumInt[A^2,2]},
+	cat /. {
+		AbId[n_] :> TLId[-q2, n],
+		AbB[] :> A TLId[-q2, 2] + A^-1 TLE[-q2, 2, 1],
+		AbBInv[] :> A^-1 TLId[-q2, 2] + A TLE[-q2, 2, 1],
+		AbTrans[] :> TL[-q2,2,2,P[1,4]P[2,3]],
+		AbCup[] :> TL[-q2,2,0,P[1,2]],
+		AbCap[] :> TL[-q2,0,2,P[1,2]],
+		_AbV /; Message[KauffmanBracket::abv] :> $Failed
+	}]//SimplifyTL;
+
+sndcol[A_,0] := JWProjector[A^(1/2),0];
+sndcol[A_,1] := JWProjector[A^(1/2),2];
+sndcol[A_,n_] := CircleTimes@@Table[JWProjector[A^(1/2),2],n];
+
+circToBdr[m_,n_,i_] := If[i <= n, i, m+n+1-(i-n)];
+
+YamadaPoly[v_] := Module[{A}, With[{t=YamadaPoly[v,A]/.{A->#}}, t&]];
+YamadaPoly[pd_PD, A_] := YamadaPoly[FromPD[pd], A];
+YamadaPoly[cat_, A_] := With[{q2=QuantumInt[A^(1/2),2]},
+	cat /. {
+		AbId[n_] :> sndcol[A,n],
+		AbB[] :> sndcol[A,2]**KauffmanBracket[
+			(AbId[1]\[CircleTimes] AbB[] \[CircleTimes] AbId[1])
+			** (AbB[] \[CircleTimes] AbB[])
+			** (AbId[1]\[CircleTimes] AbB[] \[CircleTimes] AbId[1]) ,A^(1/4)],
+		AbBInv[] :> sndcol[A,2]**KauffmanBracket[
+			(AbId[1]\[CircleTimes] AbBInv[] \[CircleTimes] AbId[1])
+			** (AbBInv[] \[CircleTimes] AbBInv[])
+			** (AbId[1]\[CircleTimes] AbBInv[] \[CircleTimes] AbId[1]) ,A^(1/4)],
+		AbTrans[] :> sndcol[A,2]**TL[-q2,4,4,P[1,7]P[2,8]P[3,5]P[4,6]],
+		AbCup[] :> (sndcol[A,1]\[CircleTimes]TLId[-q2,2])**TL[-q2,4,0,P[1,4]P[2,3]],
+		AbCap[] :> TL[-q2,0,4,P[1,4]P[2,3]]**(sndcol[A,1]\[CircleTimes]TLId[-q2,2]),
+		AbV[m_,n_] :> sndcol[A,m]
+			** TL[-q2,2 m, 2 n,
+				(-q2)^((m+n)/2-1) Times@@Table[
+					P[circToBdr[2m,2n,2i],circToBdr[2m,2n,Mod[2i+1,2(m+n),1]]],{i,m+n}]]
+			** sndcol[A,n]
+	}]//SimplifyTL;
 
 End[];
 
@@ -402,46 +632,6 @@ DP /: MakeBoxes[fl:DP[t_,m_,n_,v_], f:StandardForm] :=
 		]];
 
 DPMakeBasis[t_,m_,n_,IsolatedPoints_:True] := DP[t,m,n,Times@@DS@@@#]&/@SetPartitions[m+n,IsolatedPoints];
-
-End[];
-
-
-(* ::Section:: *)
-(*Planar diagrams*)
-
-
-PD::usage="PD[planar diagram elements..]";
-V::usage="V[i,j,..] is a flat vertex in a PD with edge labels i,j,.. in
-counterclockwise order.";
-X::usage="X[i,j,k,l] is a crossing with V[i,k] the understrand and V[j,l]
-the overstrand.";
-VirtX::usage="VirtX[i,j,k,l] is a virtual crossing of V[i,k] and V[j,l].";
-
-
-Begin["`Private`PD`"];
-
-End[];
-
-
-(* ::Section:: *)
-(*Abstract category*)
-
-
-AbId::usage="AbId[n] is an abstract identity element.";
-AbB::usage="AbB[m,n] is a braid from m\[CircleTimes]n to n\[CircleTimes]m."
-AbBInv::usage="AbBInv[m,n] is the inverse of AbB[n,m].";
-AbCup::usage="AbCup[n] is nested cups from 0 to n\[CircleTimes]n.";
-AbCap::usage="AbCap[n] is nested caps from n\[CircleTimes]n to 0.";
-AbV::usage="AbV[m,n] is a degree-(m+n) vertex from n to m.";
-
-
-Begin["`Private`Ab`"];
-
-DecomposeAbB[AbB[n_,0]|AbBInv[n_,0]|AbB[0,n_]|AbBInv[0,n_]] := AbId[n];
-DecomposeAbB[AbB[1,1]] = AbB[1,1];
-DecomposeAbB[AbB[n_,m_]] :=
-
-DecomposeBraids[x_]
 
 End[];
 
