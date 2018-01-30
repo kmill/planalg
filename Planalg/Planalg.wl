@@ -566,7 +566,9 @@ SimplifyDP::usage="SimplifyDP[DP[...]] puts the DP into normal form.";
 
 DPId::usage="DPId[t,n] gives the identity in DP[t,n,n,...].";
 
-DPMakeBasis::usage="DPMakeBasis[t,m,n] gives a basis for DP[t,m,n,...].";
+DPMakeBasis::usage="DPMakeBasis[t,m,n,AllowSingletons->True] gives a basis
+for DP[t,m,n,...].";
+Options[DPMakeBasis] = {AllowSingletons->True};
 
 
 Begin["`Private`DP`"];
@@ -631,7 +633,11 @@ DP /: MakeBoxes[fl:DP[t_,m_,n_,v_], f:StandardForm] :=
 			InterpretationBox[box, t]
 		]];
 
-DPMakeBasis[t_,m_,n_,IsolatedPoints_:True] := DP[t,m,n,Times@@DS@@@#]&/@SetPartitions[m+n,IsolatedPoints];
+DPMakeBasis[t_,m_,n_,OptionsPattern[]] := Map[
+	If[OptionValue[AllowSingletons] || AllTrue[#,Length[#]>=2&],
+		DP[t,m,n,Times@@DS@@@#],
+		Nothing]&,
+	SetPartitions[m+n]];
 
 End[];
 
