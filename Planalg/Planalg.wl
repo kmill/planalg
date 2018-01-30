@@ -65,14 +65,28 @@ SetAttributes[CircleTimes, {Flat, OneIdentity}];
 Protect[CircleTimes];
 
 
-(* ::Section:: *)
+(* ::Subsection:: *)
+(*Objects*)
+
+
+PLeft::usage="PLeft[element of homset]. Gives left object.";
+PRight::usage="PRight[element of homset]. Gives right object.";
+
+PLeft[ncm_NonCommutativeMultiply] := PLeft@First@ncm;
+PLeft[tens_CircleTimes] := Plus@@(PLeft/@tens);
+
+PRight[ncm_NonCommutativeMultiply] := PRight@Last@ncm;
+PRight[tens_CircleTimes] := Plus@@(PRight/@tens);
+
+
+(* ::Subsection:: *)
 (*Trace*)
 
 
 PTr::usage="PTr[element of homset]. Calculates a trace depending on the category.";
 
 
-(* ::Section:: *)
+(* ::Subsection:: *)
 (*Dual*)
 
 
@@ -149,15 +163,34 @@ AbId /: AbId[n_] \[CircleTimes] AbId[m_] := AbId[n+m];
 AbId /: AbId[0] \[CircleTimes] v_ := v;
 AbId /: v_ \[CircleTimes] AbId[0] := v;
 
+AbQ[_AbId|_AbB|_AbBInv|_AbTrans|_AbCup|_AbCap|_AbV] = True;
+AbQ[_] = False;
+
+PLeft[AbId[n_]] := n;
+PLeft[_AbB|_AbBInv|_AbTrans] := 2;
+PLeft[_AbCup] := 2;
+PLeft[_AbCap] := 0;
+PLeft[AbV[m_,n_]] := m;
+
+PRight[AbId[n_]] := n;
+PRight[_AbB|_AbBInv|_AbTrans] := 2;
+PRight[_AbCup] := 0;
+PRight[_AbCap] := 2;
+PRight[AbV[m_,n_]] := n;
+
 splitFrontier::badSplit="Invalid split for splitFrontier.";
 
 splitFrontier[frontier_List, p_List] := Replace[
 	SplitBy[frontier, MemberQ[p,#]&], {
-		{} :> {0, {}, 0, #&},
-		{a_}/;IntersectingQ[a,p] :> {0, a, 0, #&},
-		{a_,b_}/;IntersectingQ[a,p] :> {0, a, Length@b, Join[#,b]&},
-		{a_,b_}/;IntersectingQ[b,p] :> {Length@a, b, 0, Join[a,#]&},
-		{a_,b_,c_}/;IntersectingQ[b,p] :> {Length@a, b, Length@c, Join[a,#,c]&},
+		{} :> {0, {}, 0, #&, 0},
+		{a_}/;IntersectingQ[a,p] :> {0, a, 0, #&, 0},
+		{a_,b_}/;IntersectingQ[a,p] :> {0, a, Length@b, Join[#,b]&, 0},
+		{a_,b_}/;IntersectingQ[b,p] :> {Length@a, b, 0, Join[a,#]&, 0},
+		{a_,b_,c_}/;IntersectingQ[b,p] :> {Length@a, b, Length@c, Join[a,#,c]&, 0},
+		{a_,b_,c_}/;IntersectingQ[a,p] :> (* have to rotate *)
+			If[Length[a] <= Length[c],
+				{Length@b, Join[c,a], 0, Join[b,#]&, Length[a]},
+				{0, Join[c,a], Length@b, Join[#,b]&, -Length[c]}],
 		_ :> (Message[splitFrontier::badSplit]; $Failed)
 	}];
 
@@ -168,7 +201,7 @@ calculateOpp[splitF_, p_] :=
 convert[frontier_List, v_V] :=
 	With[{f=splitFrontier[frontier, List@@v]},
 		With[{opp=calculateOpp[f, v]},
-			{f[[4]][opp],
+			{f[[4]][opp], f[[5]],
 				AbId[f[[1]]] \[CircleTimes] AbV[Length@opp, Length@f[[2]]] \[CircleTimes] AbId[f[[3]]]}
 	]];
 
@@ -194,7 +227,7 @@ convert[frontier_List, x_X] :=
 		f=splitFrontier[frontier, List@@x],
 		xf=MemberQ[frontier,#]&/@List@@x
 	},
-	{f[[4]][calculateOpp[f, x]],
+	{f[[4]][calculateOpp[f, x]], f[[5]],
 		AbId[f[[1]]]
 			\[CircleTimes] activateX[xf, If[Length@f[[2]] > 0,
 								First@FirstPosition[x, f[[2,1]]]]]
@@ -212,7 +245,7 @@ convert[frontier_List, x_VirtX] :=
 		f=splitFrontier[frontier, List@@x],
 		xc=Count[x,_?(MemberQ[frontier,#]&)] },
 		
-	{f[[4]][calculateOpp[f,x]],
+	{f[[4]][calculateOpp[f,x]], f[[5]],
 		AbId[f[[1]]] \[CircleTimes] activateVirtX[xc] \[CircleTimes] AbId[f[[3]]]}
 	];
 
@@ -224,9 +257,18 @@ convert[frontier_List, p_PPath] :=
 	With[{
 		f=splitFrontier[frontier, List@@p],
 		pc=Count[p,_?(MemberQ[frontier,#]&)]},
-	{f[[4]][calculateOpp[f,p]],
+	{f[[4]][calculateOpp[f,p]], f[[5]],
 		AbId[f[[1]]] \[CircleTimes] activatePPath[pc] \[CircleTimes] AbId[f[[3]]]}
 	];
+
+(*For re-routing i inlets on the bottom side around the right to the top side.*)
+rotNCMmul[a_, b_,left_, 0] := a ** b;
+rotNCMmul[a_,b_,left_,i_] /;i>0 := rotNCMmul[a,
+	(AbCap[]\[CircleTimes]AbId[left])**(AbId[1]\[CircleTimes]b\[CircleTimes]AbId[1]) ** AbCup[],
+	left, i-1];
+rotNCMmul[a_,b_,left_,i_] /;i<0 := rotNCMmul[a,
+	(AbId[left]\[CircleTimes]AbCap[])**(AbId[1]\[CircleTimes]b\[CircleTimes]AbId[1]) ** AbCup[],
+	left, i+1];
 
 FromPD::incomplete="Incomplete planar diagram.";
 FromPD[pd_PD] := Module[{make, fresh},
@@ -234,9 +276,9 @@ FromPD[pd_PD] := Module[{make, fresh},
 	make[_, _, PD[]] := (Message[FromPD::incomplete]; $Failed);
 	make[val_, frontier_, rest_] := With[{
 		pos=First@Ordering[Length@Complement[List@@#, frontier]+Length@Complement[frontier, List@@#]&/@rest,1]
-		},
+		},(*Print["make",{frontier, rest[[pos]], rest}];*)
 		With[{c=convert[frontier, rest[[pos]]]},
-			make[c[[2]] ** val, c[[1]], Delete[rest, pos]]]];
+			make[rotNCMmul[c[[3]], val, Length@frontier, c[[2]]], c[[1]], Delete[rest, pos]]]];
 	fresh = Max[List@@@List@@pd]+1;
 	make[NonCommutativeMultiply[], {}, pd //. {
 		h_[a___,i_,b___,i_,c___]:>With[{j=fresh++},Sequence@@{PPath[i,j],h[a,i,b,j,c]}]
@@ -294,6 +336,9 @@ the abstract category to TL, coloring edges with the second Jones-Wenzl projecto
 Begin["`Private`TL`"];
 
 ImpartLinearity[TL, TL[c_,m_,n_,#]&, TL[c,m,n,#]&];
+
+PLeft[TL[_,m_,n_,_]] := m;
+PRight[TL[_,m_,n_,_]] := n;
 
 ClearAll[P];
 SetAttributes[P, {Orderless}];
@@ -465,6 +510,9 @@ Begin["`Private`Flow`"];
 
 ImpartLinearity[Flow, Flow[Q_,m_,n_,#]&, Flow[Q,m,n,#]&];
 
+PLeft[Flow[_,m_,n_,_]] := m;
+PRight[Flow[_,m_,n_,_]] := n;
+
 ClearAll[FPart];
 SetAttributes[FV, {Orderless}];
 FV[] = 1;
@@ -571,6 +619,9 @@ Options[DPMakeBasis] = {AllowSingletons->True};
 Begin["`Private`DP`"];
 
 ImpartLinearity[DP, DP[t_,m_,n_,#]&, DP[t,m,n,#]&];
+
+PLeft[DP[_,m_,n_,_]] := m;
+PRight[DP[_,m_,n_,_]] := n;
 
 (*These rules make sense in the context of how composition works. DS[] will appear
 when there is an internal partition.*)
