@@ -36,7 +36,10 @@ SetPartitions[{x_,xs___}] :=
 			Prepend[#,{x}],
 			Sequence@@ReplaceList[#,{a___,is_,b___}:>{a,Prepend[is,x],b}]}&,
 		SetPartitions[{xs}]];
-SetPartitions[n_Integer] := SetPartitions[Range[n]];
+SetPartitions[n_Integer,SingletonsAllowed_:True] := If[SingletonsAllowed,
+	SetPartitions[Range[n]],
+	DeleteCases[SetPartitions[Range[n]], {___, {_}, ___}]
+	];
 
 (*Adapted from a one-liner by acl and Mr.Wizard at
 https://mathematica.stackexchange.com/questions/7887/best-way-to-create-symmetric-matrices *)
@@ -398,7 +401,7 @@ DP /: MakeBoxes[fl:DP[t_,m_,n_,v_], f:StandardForm] :=
 			InterpretationBox[box, t]
 		]];
 
-DPMakeBasis[t_,m_,n_] := DP[t,m,n,Times@@DS@@@#]&/@SetPartitions[m+n];
+DPMakeBasis[t_,m_,n_,IsolatedPoints_:True] := DP[t,m,n,Times@@DS@@@#]&/@SetPartitions[m+n,IsolatedPoints];
 
 End[];
 
