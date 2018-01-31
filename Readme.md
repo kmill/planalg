@@ -4,6 +4,8 @@ This is a Mathematica package for working with planar algebras and categories.
 
 To use: either
 
+- open Planalg/Planalg.wl in Mathematica and click Run All Code
+
 - copy the Planalg directory to
 `$UserBaseDirectory/Applications`
 

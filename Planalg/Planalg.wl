@@ -36,10 +36,7 @@ SetPartitions[{x_,xs___}] :=
 			Prepend[#,{x}],
 			Sequence@@ReplaceList[#,{a___,is_,b___}:>{a,Prepend[is,x],b}]}&,
 		SetPartitions[{xs}]];
-SetPartitions[n_Integer,SingletonsAllowed_:True] := If[SingletonsAllowed,
-	SetPartitions[Range[n]],
-	DeleteCases[SetPartitions[Range[n]], {___, {_}, ___}]
-	];
+SetPartitions[n_Integer] := SetPartitions[Range[n]];
 
 (*Adapted from a one-liner by acl and Mr.Wizard at
 https://mathematica.stackexchange.com/questions/7887/best-way-to-create-symmetric-matrices *)
