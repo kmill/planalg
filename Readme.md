@@ -6,6 +6,8 @@ To use: either
 
 - open Planalg/Planalg.wl in Mathematica and click Run All Code
 
+or either
+
 - copy the Planalg directory to
 `$UserBaseDirectory/Applications`
 
