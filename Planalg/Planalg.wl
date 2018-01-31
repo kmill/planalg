@@ -153,6 +153,7 @@ AbCap::usage="AbCap[] is a cap from 1\[CircleTimes]1 to 0.";
 AbV::usage="AbV[m,n] is a degree-(m+n) vertex from n to m.";
 
 FromPD::usage="FromPD[pd] converts a planar diagram to a categorical expression.";
+Options[FromPD]={Left->{}, Right->{}};
 
 AbGraphForm::usage="AbGraphForm[v] displays v in a 2D form.";
 
@@ -271,18 +272,22 @@ rotNCMmul[a_,b_,left_,i_] /;i<0 := rotNCMmul[a,
 	left, i+1];
 
 FromPD::incomplete="Incomplete planar diagram.";
-FromPD[pd_PD] := Module[{make, fresh},
-	make[val_, {}, PD[]] := val;
+FromPD::problem="The tangle wanted to snake around the right-hand boundary edges. This
+might be a problem with Planalg?";
+FromPD[pd_PD, OptionsPattern[]] := Module[{make, fresh},
+	make[val_, OptionValue[Left], PD[]] := val;
 	make[_, _, PD[]] := (Message[FromPD::incomplete]; $Failed);
 	make[val_, frontier_, rest_] := With[{
 		pos=First@Ordering[Length@Complement[List@@#, frontier]+Length@Complement[frontier, List@@#]&/@rest,1]
 		},(*Print["make",{frontier, rest[[pos]], rest}];*)
 		With[{c=convert[frontier, rest[[pos]]]},
+			If[c[[2]] != 0 && Length@OptionValue[Right] != 0,
+				Message[FromPD::problem]; Return[$Failed]];
 			make[rotNCMmul[c[[3]], val, Length@frontier, c[[2]]], c[[1]], Delete[rest, pos]]]];
 	fresh = Max[List@@@List@@pd]+1;
-	make[NonCommutativeMultiply[], {}, pd //. {
+	make[NonCommutativeMultiply[], OptionValue[Right], pd //. {
 		h_[a___,i_,b___,i_,c___]:>With[{j=fresh++},Sequence@@{PPath[i,j],h[a,i,b,j,c]}]
-	}]
+	}]//Replace[#,{NonCommutativeMultiply[v_]:>v}]&
 ];
 
 MakeBoxes[AbGraphForm[v_], StandardForm] := Module[{make},
