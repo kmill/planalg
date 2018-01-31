@@ -508,6 +508,8 @@ Options[FlowMakeBasis] = {Virtual->True};
 
 FlowId::usage="Flow[Q,m] is the identity in Flow[Q,m,m,...].";
 
+SimplifyFlow::usage="SimplifyFlow[diag] simplifies the diagram, removing internal edges.";
+
 
 Begin["`Private`Flow`"];
 
