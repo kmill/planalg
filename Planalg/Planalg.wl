@@ -94,6 +94,13 @@ PDual::usage="PDual[element of homset]. Calculates a dual depending
 on the category.";
 
 
+(* ::Subsection:: *)
+(*Scalars*)
+
+
+PScalar::usage="PScalar[element of (0,0)homset]. Extracts scalar value.";
+
+
 (* ::Section:: *)
 (*Planar diagrams*)
 
@@ -345,6 +352,8 @@ ImpartLinearity[TL, TL[c_,m_,n_,#]&, TL[c,m,n,#]&];
 PLeft[TL[_,m_,n_,_]] := m;
 PRight[TL[_,m_,n_,_]] := n;
 
+PScalar[TL[_,0,0,val_]] := val;
+
 ClearAll[P];
 SetAttributes[P, {Orderless}];
 P[i_, i_] := P[];
@@ -512,6 +521,10 @@ FlowId::usage="Flow[Q,m] is the identity in Flow[Q,m,m,...].";
 
 SimplifyFlow::usage="SimplifyFlow[diag] simplifies the diagram, removing internal edges.";
 
+FlowPoly::usage="FlowPoly[PD or abstract cat, Q] is a functor to the flow category.";
+QFlowPoly::usage="QFlowPoly[PD or abstract cat, q] is a functor to the flow category
+evaluated at q+1+\!\(\*SuperscriptBox[\(q\), \(-1\)]\).";
+
 
 Begin["`Private`Flow`"];
 
@@ -519,6 +532,8 @@ ImpartLinearity[Flow, Flow[Q_,m_,n_,#]&, Flow[Q,m,n,#]&];
 
 PLeft[Flow[_,m_,n_,_]] := m;
 PRight[Flow[_,m_,n_,_]] := n;
+
+PScalar[Flow[_,0,0,val_]] := val;
 
 ClearAll[FPart];
 SetAttributes[FV, {Orderless}];
@@ -549,7 +564,7 @@ PDual[Flow[Q_,m_,n_,v_]] :=
 	Flow[Q, n, m, flRenumber[v, If[#<=n, #+m, #-n]&]];
 
 Flow /: Flow[Q_,m1_,n1_,v1_] \[CircleTimes] Flow[Q_,m2_,n2_,v2_] :=
-	Flow[Q, m1, n2,
+	Flow[Q, m1+m2, n1+n2,
 		flRenumber[v1, If[#<=n1, #, #+n2]&]
 		* flRenumber[v2, If[#<=n2, #+n1, #+n1+m1]&]
 	];
@@ -604,6 +619,31 @@ FlowMakeBasis[Q_,m_,n_,OptionsPattern[]] :=
 		Flow[Q,m,n,#]&/@flPlanarPartitions[Join[Range[n],Range[n+m,n+1,-1]]]
 	];
 
+FlowPoly::notquantum="Use QFlowPoly for the version with crossings.";
+FlowPoly[v_] := Module[{Q}, With[{t=FlowPoly[v,Q]/.{Q->#}}, t&]];
+FlowPoly[pd_PD, Q_] := FlowPoly[FromPD[pd], Q];
+FlowPoly[cat_, Q_] := (cat /. {
+		AbId[n_] :> FlowId[Q, n],
+		AbB[]|AbBInv[] /; Message[FlowPoly::notquantum] :> $Failed,
+		AbTrans[] :> Flow[Q,2,2,FV[1,4]FV[2,3]],
+		AbCup[] :> Flow[Q,2,0,FV[1,2]],
+		AbCap[] :> Flow[Q,0,2,FV[1,2]],
+		AbV[m_,n_] :> Flow[Q,m,n,FV@@Range[m+n]]
+	})//SimplifyFlow;
+
+QFlowPoly[v_] := Module[{q}, With[{t=QFlowPoly[v,q]/.{q->#}}, t&]];
+QFlowPoly[pd_PD, q_] := QFlowPoly[FromPD[pd], q];
+QFlowPoly[cat_, q_] := With[{Q=q+2+q^-1},
+	(cat /. {
+		AbId[n_] :> FlowId[Q, n],
+		AbB[] :> q FlowId[Q,2] + q^-1 Flow[Q,2,2,FV[1,2]FV[3,4]] - Flow[Q,2,2,FV[1,2,3,4]],
+		AbBInv[] :> q^-1 FlowId[Q,2] + q Flow[Q,2,2,FV[1,2]FV[3,4]] - Flow[Q,2,2,FV[1,2,3,4]],
+		AbTrans[] :> Flow[Q,2,2,FV[1,4]FV[2,3]],
+		AbCup[] :> Flow[Q,2,0,FV[1,2]],
+		AbCap[] :> Flow[Q,0,2,FV[1,2]],
+		AbV[m_,n_] :> Flow[Q,m,n,FV@@Range[m+n]]
+	})]//SimplifyFlow;
+
 End[];
 
 
@@ -629,6 +669,8 @@ ImpartLinearity[DP, DP[t_,m_,n_,#]&, DP[t,m,n,#]&];
 
 PLeft[DP[_,m_,n_,_]] := m;
 PRight[DP[_,m_,n_,_]] := n;
+
+PScalar[DP[_,0,0,val_]] := val;
 
 (*These rules make sense in the context of how composition works. DS[] will appear
 when there is an internal partition.*)
