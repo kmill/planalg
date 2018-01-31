@@ -18,12 +18,10 @@ QuantumInt::usage="QuantumInt[q, n] gives [n]_q.";
 SetPartitions::usage="SetPartitions[list] gives all set partitions of list.
 SetPartitions[n] = SetPartitions[Range[n]].";
 
-Gramian::usage="Gramian[basis] gives the Gram matrix for the basis.";
-
 
 Begin["`Private`"];
 
-ImpartLinearity[head_,patfn_,resfn_]:=Module[{x1,x2},
+ImpartLinearity[head_,patfn_,resfn_]:=With[{x1=Unique["x1"], x2=Unique["x2"]},
 	head /: patfn[x1_] + patfn[x2_] := resfn[x1+x2];
 	head /: coeff_ patfn[x1:_] /; FreeQ[coeff, _head] := resfn[coeff x1];
 	];
@@ -37,14 +35,6 @@ SetPartitions[{x_,xs___}] :=
 			Sequence@@ReplaceList[#,{a___,is_,b___}:>{a,Prepend[is,x],b}]}&,
 		SetPartitions[{xs}]];
 SetPartitions[n_Integer] := SetPartitions[Range[n]];
-
-(*Adapted from a one-liner by acl and Mr.Wizard at
-https://mathematica.stackexchange.com/questions/7887/best-way-to-create-symmetric-matrices *)
-CreateSymmetric[f_Function, basis_] :=
-	With[{upper = Table[f@@basis[[{i,j}]], {i,Length@basis}, {j,i}]},
-		Join[upper, Rest /@ Flatten[upper, {2}], 2]];
-
-Gramian[basis_List] := CreateSymmetric[PTr[#1**PDual@#2]&, basis];
 
 End[];
 
@@ -99,6 +89,26 @@ on the category.";
 
 
 PScalar::usage="PScalar[element of (0,0)homset]. Extracts scalar value.";
+
+
+(* ::Subsection:: *)
+(* Functions *)
+
+
+Gramian::usage="Gramian[basis] gives the Gram matrix for the basis.";
+
+
+Begin["`Private`Cats`"];
+
+(*Adapted from a one-liner by acl and Mr.Wizard at
+https://mathematica.stackexchange.com/questions/7887/best-way-to-create-symmetric-matrices *)
+CreateSymmetric[f_Function, basis_] :=
+	With[{upper = Table[f@@basis[[{i,j}]], {i,Length@basis}, {j,i}]},
+		Join[upper, Rest /@ Flatten[upper, {2}], 2]];
+
+Gramian[basis_List] := CreateSymmetric[PTr[#1**PDual@#2]&, basis];
+
+End[];
 
 
 (* ::Section:: *)
