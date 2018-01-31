@@ -596,7 +596,7 @@ Flow /: MakeBoxes[fl:Flow[Q_,m_,n_,v_], f:StandardForm] := Module[{FComb},
 				MakeBoxes[Q,f], ",", MakeBoxes[m,f], ",", MakeBoxes[n,f], ",",
 				MakeBoxes[v2,f]
 			}], "]"}]},
-			InterpretationBox[box, t]
+			InterpretationBox[box, fl]
 		]]];
 
 (*Computes all elements that correspond to planar graphs.*)
