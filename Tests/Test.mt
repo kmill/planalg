@@ -2,7 +2,7 @@
 
 Test[
 	With[{p = JWProjector[q, 5]},
- 		p ** p - p // SimplifyTL
+		p ** p - p // PSimplify
  	]
 	,
 	TL[-q^(-1) - q, 5, 5, 0]
@@ -33,4 +33,13 @@ Test[
 	TL[-(1/Sqrt[A]) - Sqrt[A], 4, 4, 0]
 	,
 	TestID->"Test-20180130-H0X0R3"
+]
+
+Test[
+	With[{pd = FlatVertG["theta"]},
+ 		PScalar@YamadaPoly[pd, A] - PScalar@QFlowPoly[pd, A] // FullSimplify]
+	,
+	0
+	,
+	TestID->"Test-20180130-C6J0Y5"
 ]

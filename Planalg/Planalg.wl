@@ -68,6 +68,10 @@ PLeft[tens_CircleTimes] := Plus@@(PLeft/@tens);
 PRight[ncm_NonCommutativeMultiply] := PRight@Last@ncm;
 PRight[tens_CircleTimes] := Plus@@(PRight/@tens);
 
+PCoeffs::usage="PCoeffs[cat] gives a list of {coefficient,simple element} pairs.
+What this means depends on the category.";
+PSimplify::usage="PSimplify[cat] puts the hom into a normal form.";
+
 
 (* ::Subsection:: *)
 (*Trace*)
@@ -334,9 +338,6 @@ TL::usage="TL[c,m,n,linear combination of products of P's with
 poly(c) coefficients], with n boundary vertices on the right and m on the left.";
 P::usage="P[i,j] represents an undirected path between i and j.";
 
-SimplifyTL::usage="SimplifyTL[x] takes all TL subexpressions in x and
-collects basis terms.";
-
 TLId::usage="TLId[c,n] gives the identity in TL[c,n,n,...].";
 TLE::usage="TLE[c,n,i] gives the generator e_i.";
 
@@ -372,21 +373,22 @@ P /: P[i_,j_]^2 := P[];
 
 tlEliminateLoops[c_, v_] := Expand[v, _P] /. P[] -> c;
 
-ClearAll[SimplifyTL];
-Module[{PComb},
-	SetAttributes[PComb, {Orderless}];
-	PComb /: PComb[ps1___] PComb[ps2___] := PComb[ps1, ps2];
+SetAttributes[PComb, {Orderless}];
+PComb /: PComb[ps1___] PComb[ps2___] := PComb[ps1, ps2];
 
-	SimplifyTL[TL[c_, m_, n_, v_]] := TL[c, m, n,
-		Collect[(tlEliminateLoops[c, v] /. p_P:>PComb@p), _PComb, FullSimplify] /.
-			p_PComb:>Times@@p
-	];
-];
+PSimplify[TL[c_, m_, n_, v_]] := TL[c, m, n,
+	Collect[(tlEliminateLoops[c, v] /. p_P:>PComb@p), _PComb, FullSimplify] /.
+		p_PComb:>Times@@p];
+
+PCoeffs[tl_TL] :=
+	Replace[PSimplify@tl, TL[c_,m_,n_,v_]:>
+		Replace[v/.p_P:>PComb@p, HoldPattern[Plus[terms___]]:>
+			Map[Replace[#,co_. pc_PComb :> {co, TL[c,m,n,Times@@pc]}]&,{terms}]]];
 
 (*Markov trace*)
 PTr[TL[c_, m_, m_, v_]] := tlEliminateLoops[c, v Times@@Table[P[i,i+m],{i,m}]]/c^m;
 
-tlRenumber[v_, f_Function] := v /. p_P:>(f/@p);
+tlRenumber[v_, f_Function] := Expand[v, _P] /. p_P:>(f/@p);
 
 PDual[TL[c_,m_,n_,v_]] := TL[c, n, m, tlRenumber[v, If[#<=n, #+m, #-n]&]];
 	
@@ -400,7 +402,7 @@ TL /: TL[c_, l_, m_, v2_] ** TL[c_, m_, n_, v1_] :=
 	TL[c, l, n,
 		tlRenumber[v2, If[#<=m, #+l+n, #-m+n]&]
 		* tlRenumber[v1, If[#<=n, #, #+l]&]
-	] // SimplifyTL; (* must simplify to eliminate internal vertices *)
+	] // PSimplify; (* must simplify to eliminate internal vertices *)
 
 TLId[c_, n_] := TL[c, n, n, Times@@Table[P[i, i+n], {i, n}]];
 
@@ -416,7 +418,7 @@ JWProjector[q_, n_] := JWProjector[q, n] = With[
 	p \[CircleTimes] TLId[c,1]
 	+ (QuantumInt[q,n-1]/QuantumInt[q,n])
 	* (p \[CircleTimes] TLId[c,1]) ** TLE[c, n, n-1] ** (p \[CircleTimes] TLId[c,1])
-	// SimplifyTL
+	// PSimplify
 ];
 
 tlMakePic[m_,n_,diag_] := Graphics[Join[
@@ -439,9 +441,7 @@ tlMakePathPic[m_,n_,P[i_,j_]] := With[{
 	BezierCurve[{{0,i-n},{d,i-n},{d,j-n},{0,j-n}}]
 ]];
 
-TL /: MakeBoxes[t:TL[c_, m_, n_, v_], f:StandardForm] := Module[{PComb},
-	SetAttributes[PComb, {Orderless}];
-	PComb /: PComb[ps1___] PComb[ps2___] := PComb[ps1, ps2];
+TL /: MakeBoxes[t:TL[c_, m_, n_, v_], f:StandardForm] :=
 	With[{v2 = Expand[v,_P]
 			/.{p_P:>PComb@p}
 			/.{p_PComb:>tlMakePic[m,n,List@@p]}},
@@ -449,7 +449,7 @@ TL /: MakeBoxes[t:TL[c_, m_, n_, v_], f:StandardForm] := Module[{PComb},
 				MakeBoxes[c,f], ",", MakeBoxes[m,f], ",", MakeBoxes[n,f],",",
 				MakeBoxes[v2, f]
 			}], "]"}]},
-			InterpretationBox[box, t]]]];
+			InterpretationBox[box, t]]];
 
 tlAllPairs[{}] := {1};
 tlAllPairs[{x_,xs___}] :=
@@ -481,7 +481,7 @@ KauffmanBracket[cat_,A_] := With[{q2=QuantumInt[A^2,2]},
 		AbCup[] :> TL[-q2,2,0,P[1,2]],
 		AbCap[] :> TL[-q2,0,2,P[1,2]],
 		_AbV /; Message[KauffmanBracket::abv] :> $Failed
-	}]//SimplifyTL;
+	}]//PSimplify;
 
 sndcol[A_,0] := JWProjector[A^(1/2),0];
 sndcol[A_,1] := JWProjector[A^(1/2),2];
@@ -510,7 +510,7 @@ YamadaPoly[cat_, A_] := With[{q2=QuantumInt[A^(1/2),2]},
 				(-q2)^((m+n)/2-1) Times@@Table[
 					P[circToBdr[2m,2n,2i],circToBdr[2m,2n,Mod[2i+1,2(m+n),1]]],{i,m+n}]]
 			** sndcol[A,n]
-	}]//SimplifyTL;
+	}]//PSimplify;
 
 End[];
 
@@ -528,8 +528,6 @@ homset from n to m over \[DoubleStruckCapitalC](c). Virtual is true by default."
 Options[FlowMakeBasis] = {Virtual->True};
 
 FlowId::usage="Flow[Q,m] is the identity in Flow[Q,m,m,...].";
-
-SimplifyFlow::usage="SimplifyFlow[diag] simplifies the diagram, removing internal edges.";
 
 FlowPoly::usage="FlowPoly[PD or abstract cat, Q] is a functor to the flow category.";
 QFlowPoly::usage="QFlowPoly[PD or abstract cat, q] is a functor to the flow category
@@ -555,20 +553,22 @@ FV /: FV[a_, b___]^2 := FV[b, b] - FV[b]^2;
 
 flEliminateLoops[Q_, v_] := Expand[v, _FV] /. FLoop[] -> Q - 1;
 
-Module[{FComb},
-	SetAttributes[FComb, {Orderless}];
-	FComb /: FComb[fvs1___] FComb[fvs2___] := FComb[fvs1, fvs2];
-	
-	SimplifyFlow[Flow[Q_,m_,n_,v_]] := Flow[Q, m, n,
-		Collect[(flEliminateLoops[Q, v] /. fv_FV:>FComb@fv), _FComb, FullSimplify]
-			/. comb_FComb:>Times@@comb
-	];
-];
+SetAttributes[FComb, {Orderless}];
+FComb /: FComb[fvs1___] FComb[fvs2___] := FComb[fvs1, fvs2];
+
+PSimplify[Flow[Q_,m_,n_,v_]] := Flow[Q, m, n,
+	Collect[(flEliminateLoops[Q, v] /. fv_FV:>FComb@fv), _FComb, FullSimplify] /.
+		comb_FComb:>Times@@comb];
+
+PCoeffs[fl_Flow] :=
+	Replace[PSimplify@fl, Flow[Q_,m_,n_,v_]:>
+		Replace[v/.f_FV:>FComb@f, HoldPattern[Plus[terms___]]:>
+			Map[Replace[#,co_. fc_FComb :> {co, Flow[Q,m,n,Times@@fc]}]&,{terms}]]];
 	
 PTr[Flow[Q_,m_,m_,v_]] :=
 	flEliminateLoops[Q, v Times@@Table[FV[i,i+m],{i,m}]]/(Q-1)^m;
 
-flRenumber[v_, f_Function] := v /. fv_FV:>(f/@fv);
+flRenumber[v_, f_Function] := Expand[v, _FV] /. fv_FV:>(f/@fv);
 
 PDual[Flow[Q_,m_,n_,v_]] :=
 	Flow[Q, n, m, flRenumber[v, If[#<=n, #+m, #-n]&]];
@@ -583,7 +583,7 @@ Flow /: Flow[Q_,l_,m_,v2_] ** Flow[Q_,m_,n_,v1_] :=
 	Flow[Q, l, n,
 		flRenumber[v2, If[#<=m, #+l+n, #-m+n]&]
 		* flRenumber[v1, If[#<=n, #, #+l]&]
-	] // SimplifyFlow;
+	] // PSimplify;
 
 FlowId[Q_, n_] := Flow[Q, n, n, Times@@Table[FV[i, i+n], {i, n}]];
 
@@ -596,9 +596,7 @@ flMakeVertPic[m_,n_,y_,v_FV] := With[{
 	ipt = If[#<=n, {2,#}, {0,#-n}]&},
 	Append[Line[{ipt[#],{1,y}}]&/@List@@v, Disk[{1,y}, 0.08]]
 ];
-Flow /: MakeBoxes[fl:Flow[Q_,m_,n_,v_], f:StandardForm] := Module[{FComb},
-	SetAttributes[FComb, {Orderless}];
-	FComb /: FComb[fvs1___] FComb[fvs2___] := FComb[fvs1, fvs2];
+Flow /: MakeBoxes[fl:Flow[Q_,m_,n_,v_], f:StandardForm] :=
 	With[{v2 = Expand[v,_FV]
 			/.{fv_FV:>FComb@fv}
 			/.{fc_FComb:>flMakePic[m,n,List@@fc]}},
@@ -607,7 +605,7 @@ Flow /: MakeBoxes[fl:Flow[Q_,m_,n_,v_], f:StandardForm] := Module[{FComb},
 				MakeBoxes[v2,f]
 			}], "]"}]},
 			InterpretationBox[box, fl]
-		]]];
+		]];
 
 (*Computes all elements that correspond to planar graphs.*)
 flPlanarPartitions[{}] = {1};
@@ -639,7 +637,7 @@ FlowPoly[cat_, Q_] := (cat /. {
 		AbCup[] :> Flow[Q,2,0,FV[1,2]],
 		AbCap[] :> Flow[Q,0,2,FV[1,2]],
 		AbV[m_,n_] :> Flow[Q,m,n,FV@@Range[m+n]]
-	})//SimplifyFlow;
+	})//PSimplify;
 
 QFlowPoly[v_] := Module[{q}, With[{t=QFlowPoly[v,q]/.{q->#}}, t&]];
 QFlowPoly[pd_PD, q_] := QFlowPoly[FromPD[pd], q];
@@ -652,7 +650,7 @@ QFlowPoly[cat_, q_] := With[{Q=q+2+q^-1},
 		AbCup[] :> Flow[Q,2,0,FV[1,2]],
 		AbCap[] :> Flow[Q,0,2,FV[1,2]],
 		AbV[m_,n_] :> Flow[Q,m,n,FV@@Range[m+n]]
-	})]//SimplifyFlow;
+	})]//PSimplify;
 
 End[];
 
@@ -663,8 +661,6 @@ End[];
 
 DP::usage="DP[t,m,n,linear combination of DS's over \[DoubleStruckCapitalC](t)]";
 DS::usage="DS[...] is a subset of m+n";
-
-SimplifyDP::usage="SimplifyDP[DP[...]] puts the DP into normal form.";
 
 DPId::usage="DPId[t,n] gives the identity in DP[t,n,n,...].";
 
@@ -694,15 +690,20 @@ DPart /: DPart[ss1___] DPart[ss2___] := DPart[ss1, ss2];
 
 dpEliminateEmpties[t_,v_] := Expand[v, _DS] /. DS[] -> t;
 
-SimplifyDP[DP[t_,m_,n_,v_]] := DP[t,m,n,
+PSimplify[DP[t_,m_,n_,v_]] := DP[t,m,n,
 	Collect[(dpEliminateEmpties[t, v] /. d_DS:>DPart@d), _DPart, FullSimplify]
 	 /. d_DPart:>Times@@d
 ];
 
+PCoeffs[dp_DP] :=
+	Replace[PSimplify@dp, DP[t_,m_,n_,v_]:>
+		Replace[v/.ds_DS:>DPart@ds, HoldPattern[Plus[terms___]]:>
+			Map[Replace[#,co_. dc_DPart :> {co, DP[t,m,n,Times@@dc]}]&,{terms}]]];
+
 (*TODO should this be normalized?*)
 PTr[DP[t_,m_,m_,v_]] := dpEliminateEmpties[t, v Times@@Table[DS[i,i+m],{i,m}]]/t^m;
 
-dsRenumber[v_, f_Function] := v /. d_DS:>(f/@d);
+dsRenumber[v_, f_Function] := Expand[v, _DS] /. d_DS:>(f/@d);
 
 PDual[DP[t_,m_,n_,v_]] := DP[t,n,m,dsRenumber[v, If[#<=n, #+m, #-n]&]];
 
@@ -716,7 +717,7 @@ DP /: DP[t_, l_, m_, v2_] ** DP[t_, m_, n_, v1_] :=
 	DP[t, l, n,
 		dsRenumber[v2, If[#<=m, #+l+n, #-m+n]&]
 		* dsRenumber[v1, If[#<=n, #, #+l]&]
-	] // SimplifyDP; (* must simplify to eliminate internal partitions *)
+	] // PSimplify; (* must simplify to eliminate internal partitions *)
 
 DPId[t_, n_] := DP[t, n, n, Times@@Table[DS[i, i+n], {i, n}]];
 
