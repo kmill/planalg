@@ -62,11 +62,13 @@ Protect[CircleTimes];
 PLeft::usage="PLeft[element of homset]. Gives left object.";
 PRight::usage="PRight[element of homset]. Gives right object.";
 
+Begin["`Private`Monoidal`"];
 PLeft[ncm_NonCommutativeMultiply] := PLeft@First@ncm;
 PLeft[tens_CircleTimes] := Plus@@(PLeft/@tens);
 
 PRight[ncm_NonCommutativeMultiply] := PRight@Last@ncm;
 PRight[tens_CircleTimes] := Plus@@(PRight/@tens);
+End[];
 
 PCoeffs::usage="PCoeffs[cat] gives a list of {coefficient,simple element} pairs.
 What this means depends on the category.";
@@ -78,6 +80,7 @@ PSimplify::usage="PSimplify[cat] puts the hom into a normal form.";
 
 
 PTr::usage="PTr[element of homset]. Calculates a trace depending on the category.";
+Options[PTr] = {Normalized->True};
 
 
 (* ::Subsection:: *)
@@ -100,6 +103,7 @@ PScalar::usage="PScalar[element of (0,0)homset]. Extracts scalar value.";
 
 
 Gramian::usage="Gramian[basis] gives the Gram matrix for the basis.";
+Options[Gramian] = {Trace->PTr, Dual->PDual};
 
 
 Begin["`Private`Cats`"];
@@ -110,7 +114,10 @@ CreateSymmetric[f_Function, basis_] :=
 	With[{upper = Table[f@@basis[[{i,j}]], {i,Length@basis}, {j,i}]},
 		Join[upper, Rest /@ Flatten[upper, {2}], 2]];
 
-Gramian[basis_List] := CreateSymmetric[PTr[#1**PDual@#2]&, basis];
+Gramian[basis_List, OptionsPattern[]] := With[
+	{tr = OptionValue[Trace], dual = OptionValue[Dual]},
+	CreateSymmetric[tr[#1**dual@#2]&, basis]
+];
 
 End[];
 
@@ -386,7 +393,10 @@ PCoeffs[tl_TL] :=
 			Map[Replace[#,co_. pc_PComb :> {co, TL[c,m,n,Times@@pc]}]&,{terms}]]];
 
 (*Markov trace*)
-PTr[TL[c_, m_, m_, v_]] := tlEliminateLoops[c, v Times@@Table[P[i,i+m],{i,m}]]/c^m;
+PTr[TL[c_, m_, m_, v_], OptionsPattern[]] := With[
+	{norm=If[OptionValue[Normalized], c^-m, 1]},
+	norm tlEliminateLoops[c, v Times@@Table[P[i,i+m],{i,m}]]
+];
 
 tlRenumber[v_, f_Function] := Expand[v, _P] /. p_P:>(f/@p);
 
@@ -565,8 +575,10 @@ PCoeffs[fl_Flow] :=
 		Replace[v/.f_FV:>FComb@f, HoldPattern[Plus[terms___]]:>
 			Map[Replace[#,co_. fc_FComb :> {co, Flow[Q,m,n,Times@@fc]}]&,{terms}]]];
 	
-PTr[Flow[Q_,m_,m_,v_]] :=
-	flEliminateLoops[Q, v Times@@Table[FV[i,i+m],{i,m}]]/(Q-1)^m;
+PTr[Flow[Q_,m_,m_,v_], OptionsPattern[]] := With[
+	{norm=If[OptionValue[Normalized], (Q-1)^-m, 1]},
+	norm flEliminateLoops[Q, v Times@@Table[FV[i,i+m],{i,m}]]
+];
 
 flRenumber[v_, f_Function] := Expand[v, _FV] /. fv_FV:>(f/@fv);
 
@@ -701,7 +713,10 @@ PCoeffs[dp_DP] :=
 			Map[Replace[#,co_. dc_DPart :> {co, DP[t,m,n,Times@@dc]}]&,{terms}]]];
 
 (*TODO should this be normalized?*)
-PTr[DP[t_,m_,m_,v_]] := dpEliminateEmpties[t, v Times@@Table[DS[i,i+m],{i,m}]]/t^m;
+PTr[DP[t_,m_,m_,v_], OptionsPattern[]] := With[
+	{norm = If[OptionValue[Normalized], t^-m, 1]},
+	norm dpEliminateEmpties[t, v Times@@Table[DS[i,i+m],{i,m}]]
+];
 
 dsRenumber[v_, f_Function] := Expand[v, _DS] /. d_DS:>(f/@d);
 
