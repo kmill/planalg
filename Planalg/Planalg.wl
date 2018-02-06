@@ -566,7 +566,7 @@ SetAttributes[FComb, {Orderless}];
 FComb /: FComb[fvs1___] FComb[fvs2___] := FComb[fvs1, fvs2];
 
 PSimplify[Flow[Q_,m_,n_,v_]] := Flow[Q, m, n,
-	Collect[(flEliminateLoops[Q, v] /. fv_FV:>FComb@fv), _FComb, FullSimplify] /.
+	Collect[(flEliminateLoops[Q, v] /. fv_FV:>FComb@fv), _FComb, Identity] /.
 		comb_FComb:>Times@@comb];
 
 PCoeffs[fl_Flow] :=
@@ -592,11 +592,9 @@ Flow /: Flow[Q_,m1_,n1_,v1_] \[CircleTimes] Flow[Q_,m2_,n2_,v2_] :=
 
 Flow /: Flow[Q_,l_,m_,v2_] ** Flow[Q_,m_,n_,v1_] :=
 	Flow[Q, l, n,
-		flEliminateLoops[Q,
-			flRenumber[v2, If[#<=m, #+l+n, #-m+n]&]
-			* flRenumber[v1, If[#<=n, #, #+l]&]
-			]
-	];
+		flRenumber[v2, If[#<=m, #+l+n, #-m+n]&]
+		* flRenumber[v1, If[#<=n, #, #+l]&]
+	] // PSimplify;
 
 FlowId[Q_, n_] := Flow[Q, n, n, Times@@Table[FV[i, i+n], {i, n}]];
 
