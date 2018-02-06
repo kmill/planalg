@@ -553,7 +553,6 @@ PRight[Flow[_,m_,n_,_]] := n;
 
 PScalar[Flow[_,0,0,val_]] := val;
 
-ClearAll[FPart];
 SetAttributes[FV, {Orderless}];
 FV[] = 1;
 FV[_] = 0;
@@ -593,9 +592,11 @@ Flow /: Flow[Q_,m1_,n1_,v1_] \[CircleTimes] Flow[Q_,m2_,n2_,v2_] :=
 
 Flow /: Flow[Q_,l_,m_,v2_] ** Flow[Q_,m_,n_,v1_] :=
 	Flow[Q, l, n,
-		flRenumber[v2, If[#<=m, #+l+n, #-m+n]&]
-		* flRenumber[v1, If[#<=n, #, #+l]&]
-	] // PSimplify;
+		flEliminateLoops[Q,
+			flRenumber[v2, If[#<=m, #+l+n, #-m+n]&]
+			* flRenumber[v1, If[#<=n, #, #+l]&]
+			]
+	];
 
 FlowId[Q_, n_] := Flow[Q, n, n, Times@@Table[FV[i, i+n], {i, n}]];
 
