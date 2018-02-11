@@ -389,8 +389,8 @@ PSimplify[TL[c_, m_, n_, v_]] := TL[c, m, n,
 
 PCoeffs[tl_TL] :=
 	Replace[PSimplify@tl, TL[c_,m_,n_,v_]:>
-		Replace[v/.p_P:>PComb@p, HoldPattern[Plus[terms___]]:>
-			Map[Replace[#,co_. pc_PComb :> {co, TL[c,m,n,Times@@pc]}]&,{terms}]]];
+		Replace[v/.p_P:>PComb@p, HoldPattern[Plus[t1_,terms___]|t1:Except[0]]:>
+			Map[Replace[#,co_. pc_PComb :> {co, TL[c,m,n,Times@@pc]}]&,{t1,terms}]]];
 
 (*Markov trace*)
 PTr[TL[c_, m_, m_, v_], OptionsPattern[]] := With[
@@ -574,8 +574,8 @@ PSimplify[Flow[Q_,m_,n_,v_]] := Flow[Q, m, n,
 
 PCoeffs[fl_Flow] :=
 	Replace[PSimplify@fl, Flow[Q_,m_,n_,v_]:>
-		Replace[v/.f_FV:>FComb@f, HoldPattern[Plus[terms___]]:>
-			Map[Replace[#,co_. fc_FComb :> {co, Flow[Q,m,n,Times@@fc]}]&,{terms}]]];
+		Replace[v/.f_FV:>FComb@f, HoldPattern[Plus[t1_,terms___]|t1:Except[0]]:>
+			Map[Replace[#,co_. fc_FComb :> {co, Flow[Q,m,n,Times@@fc]}]&,{t1,terms}]]];
 	
 PTr[Flow[Q_,m_,m_,v_], OptionsPattern[]] := With[
 	{norm=If[OptionValue[Normalized], (Q-1)^-m, 1]},
@@ -714,8 +714,8 @@ PSimplify[DP[t_,m_,n_,v_]] := DP[t,m,n,
 
 PCoeffs[dp_DP] :=
 	Replace[PSimplify@dp, DP[t_,m_,n_,v_]:>
-		Replace[v/.ds_DS:>DPart@ds, HoldPattern[Plus[terms___]]:>
-			Map[Replace[#,co_. dc_DPart :> {co, DP[t,m,n,Times@@dc]}]&,{terms}]]];
+		Replace[v/.ds_DS:>DPart@ds, HoldPattern[Plus[t1_,terms___]|t1:Except[0]]:>
+			Map[Replace[#,co_. dc_DPart :> {co, DP[t,m,n,Times@@dc]}]&,{t1,terms}]]];
 
 (*TODO should this be normalized?*)
 PTr[DP[t_,m_,m_,v_], OptionsPattern[]] := With[
