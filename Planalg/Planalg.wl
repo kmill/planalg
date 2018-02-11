@@ -543,6 +543,9 @@ FlowPoly::usage="FlowPoly[PD or abstract cat, Q] is a functor to the flow catego
 QFlowPoly::usage="QFlowPoly[PD or abstract cat, q] is a functor to the flow category
 evaluated at q+1+\!\(\*SuperscriptBox[\(q\), \(-1\)]\).";
 
+FlowFlip::usage="FlowFlip[flow] is an involution by flipping
+all the indices on each side.";
+
 
 Begin["`Private`Flow`"];
 
@@ -583,6 +586,9 @@ flRenumber[v_, f_Function] := Expand[v, _FV] /. fv_FV:>(f/@fv);
 
 PDual[Flow[Q_,m_,n_,v_]] :=
 	Flow[Q, n, m, flRenumber[v, If[#<=n, #+m, #-n]&]];
+
+FlowFlip[Flow[Q_,m_,n_,v_]] :=
+	Flow[Q, m, n, flRenumber[v, If[#<=n, n+1-#, m+1-(#-n)+n]&]];
 
 Flow /: Flow[Q_,m1_,n1_,v1_] \[CircleTimes] Flow[Q_,m2_,n2_,v2_] :=
 	Flow[Q, m1+m2, n1+n2,
