@@ -40,18 +40,27 @@ CarefulComplement[set1_,set2_]:=Select[set1,
 	Function[elt, !Or@@(True===Reduce[ForAll[Q,Q>1,
 		#==elt]]&/@set2)]];
 
+Print["Finding primitives..."];
+Print["Found in ", Timing[
 primZIdems=With[
-	{vecs=Cases[FullSimplify[coeffs/.solns,Q>1],Except[{0..}]]},
-	CarefulComplement[Expand@FullSimplify[vecs,Q>1],
-		Flatten[Table[Expand@FullSimplify[vecs[[i]]+vecs[[j]],Q>1],
+	{vecs=Cases[Simplify[coeffs/.solns,Q>1],Except[{0..}]]},
+	CarefulComplement[vecs,
+		Flatten[Table[vecs[[i]]+vecs[[j]],
 			{i,Length@vecs},{j,i+1,Length@vecs}],1]]];
+][[1]], " seconds"];
 Print["Coefficients of primitive idempotents with respect to symmetrized basis: ",
 	primZIdems];
 
-idems=PSimplify[#.basis]&/@primZIdems//FullSimplify;
+Print["Calculating simplified Flow elements..."];
+Print["Calculated in ", Timing[
+idems=PSimplify[#.basis]&/@primZIdems//Simplify;
+][[1]], " seconds"];
 
 Print["Found ",Length@idems," primitive idempotents:"];
 Print[idems];
+
+(* Plus@@(PTr[#,Normalized\[Rule]False]&/@idems)//FullSimplify \[Equal] (Q-1)^n *)
+(* Outer[NonCommutativeMultiply,idems,idems]//FullSimplify//MatrixForm *)
 
 
 
