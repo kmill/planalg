@@ -673,6 +673,92 @@ End[];
 
 
 (* ::Section:: *)
+(*BFlow category*)
+
+
+(* ::Text:: *)
+(*This is an invariant of virtual graphs, but the same as the flow polynomial for planar graphs.*)
+
+
+BFlow::usage="BFlow[Q,m,n,linear combination of BFV's with poly(Q)
+coefficients], with n boundary vertices on the right and m on the left.";
+BFV::usage="BFV[i,j,...] is a flat vertex incident to i,j,... in that order.";
+
+BFlowMakeBasis::usage="BFlowMakeBasis[Q,m,n] gives a basis for the
+homset from n to m over \[DoubleStruckCapitalC](c).";
+
+BFlowId::usage="BFlow[Q,m] is the identity in BFlow[Q,m,m,...].";
+
+
+Begin["`Private`BFlow`"];
+
+ImpartLinearity[BFlow, BFlow[Q_,m_,n_,#]&, BFlow[Q,m,n,#]&];
+
+PLeft[BFlow[_,m_,n_,_]] := m;
+PRight[BFlow[_,m_,n_,_]] := n;
+
+PScalar[BFlow[_,0,0,val_]] := val;
+
+BFV[] = 1;
+BFV[_] = 0;
+BFV[as___,x_,bs___,x_,cs___] := BFQ[] BFV[cs,as]BFV[bs] - BFV[cs,as,bs];
+BFV /: BFV[as___,x_,bs___] BFV[cs___,x_,ds___] :=
+	BFV[bs, as, ds, cs] - BFV[bs, as] BFV[ds, cs];
+BFV /: (v_BFV)^2 := v v;
+BFV[a_,bs__] /; AnyTrue[{bs}, #<a&] := 
+	BFV@@RotateLeft[{a,bs},First@Ordering[{bs},1]];
+
+bflEliminateLoops[Q_, v_] := Expand[v, _BFV] /. BFQ[] -> Q;
+
+SetAttributes[BFComb, {Orderless}];
+BFComb /: BFComb[fvs1___] BFComb[fvs2___] := BFComb[fvs1, fvs2];
+
+PSimplify[BFlow[Q_,m_,n_,v_]] := BFlow[Q, m, n,
+	Collect[(bflEliminateLoops[Q, v] /. fv_BFV:>BFComb@fv), _BFComb, Identity] /.
+		comb_BFComb:>Times@@comb];
+
+PCoeffs[fl_BFlow] :=
+	Replace[PSimplify@fl, BFlow[Q_,m_,n_,v_]:>
+		Replace[v/.f_BFV:>BFComb@f, HoldPattern[Plus[t1_,terms___]|t1:Except[0]]:>
+			Map[Replace[#,co_. fc_BFComb :> {co, BFlow[Q,m,n,Times@@fc]}]&,{t1,terms}]]];
+	
+PTr[BFlow[Q_,m_,m_,v_], OptionsPattern[]] := 
+	bflEliminateLoops[Q, Expand[v Times@@Table[BFV[i,i+m],{i,m}],_BFV]];
+
+bflRenumber[v_, f_Function] := Expand[v, _BFV] /. fv_BFV:>(f/@fv);
+
+PDual[BFlow[Q_,m_,n_,v_]] :=
+	BFlow[Q, n, m, bflRenumber[v, If[#<=n, #+m, #-n]&]];
+
+BFlow /: BFlow[Q_,m1_,n1_,v1_] \[CircleTimes] BFlow[Q_,m2_,n2_,v2_] :=
+	BFlow[Q, m1+m2, n1+n2,
+		bflRenumber[v1, If[#<=n1, #, #+n2]&]
+		* bflRenumber[v2, If[#<=n2, #+n1, #+n1+m1]&]
+	];
+
+BFlow /: BFlow[Q_,l_,m_,v2_] ** BFlow[Q_,m_,n_,v1_] :=
+	BFlow[Q, l, n,
+		bflRenumber[v2, If[#<=m, #+l+n, #-m+n]&]
+		* bflRenumber[v1, If[#<=n, #, #+l]&]
+	] // PSimplify;
+
+BFlowId[Q_, n_] := BFlow[Q, n, n, Times@@Table[BFV[i, i+n], {i, n}]];
+
+permutePartition[partition_List]:= Module[{perm},
+	ReplaceAll[
+		Flatten@Outer[perm[##]&,
+			Sequence@@((Prepend[First@#]/@Permutations@Rest@#)&/@partition),1],
+		p_perm:>List@@p]];
+
+BFlowMakeBasis[Q_,m_,n_] :=
+	Map[BFlow[Q,m,n,Times@@BFV@@@#]&,
+		Sequence@@permutePartition[#]&/@
+		Select[SetPartitions[m+n], AllTrue[#, Length[#]>1&]&]];
+
+End[];
+
+
+(* ::Section:: *)
 (*Deligne partition category*)
 
 
