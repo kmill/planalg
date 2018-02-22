@@ -355,6 +355,9 @@ TLMakeBasis::usage="TLMakeBasis[c,m,n,Virtual->boolean] gives a basis for the
 homset from n to m over \[DoubleStruckCapitalC](c). Virtual is false by default.";
 Options[TLMakeBasis] = {Virtual->False};
 
+TLPermutation::usage="TLPermutation[c,n,perm] gives the (virtual) Temperley-Lieb
+element associated to the permutation mapping {1,2,...,n} to perm.";
+
 KauffmanBracket::usage="KauffmanBracket[pd,A] or KauffmanBracket[abstract,A] is
 a functor from the abstract category to TL.  It gives the (unnormalized) Kauffman
 bracket for scalar-valued diagrams.";
@@ -476,6 +479,13 @@ TLMakeBasis[c_,m_,n_,OptionsPattern[]] :=
 	If[OptionValue[Virtual],
 		TL[c,m,n,#]&/@tlAllPairs[m+n],
 		TL[c,m,n,#]&/@tlPlanPairs[Join[Range[n], Range[n+m, n+1, -1]]]
+	];
+
+TLPermutation::lengthError="Permutation is not the correct length.";
+TLPermutation[c_,n_,perm_] := 
+	If[n==Length@perm,
+		TL[c,n,n,Product[P[k,#[[k]]+n],{k,1,n}]]&@perm,
+		Message[TLPermutation::lengthError]; $Failed	
 	];
 
 KauffmanBracket::abv="Cannot handle vertices when colored by weight-1.";
