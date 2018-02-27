@@ -556,6 +556,11 @@ evaluated at q+1+\!\(\*SuperscriptBox[\(q\), \(-1\)]\).";
 FlowFlip::usage="FlowFlip[flow] is an involution by flipping
 all the indices on each side.";
 
+FlowPermutation::usage="FlowPermutation[Q, perm] gives the (virtual) flow algebra
+element associated to the permutation mapping {1,2,...,n} to perm.";
+
+TLToFlow::usage="TLToFlow[tl] embeds (virtual) TL[c,n,m] in Flow[c+1,n,m]."
+
 
 Begin["`Private`Flow`"];
 
@@ -599,6 +604,15 @@ PDual[Flow[Q_,m_,n_,v_]] :=
 
 FlowFlip[Flow[Q_,m_,n_,v_]] :=
 	Flow[Q, m, n, flRenumber[v, If[#<=n, n+1-#, m+1-(#-n)+n]&]];
+
+FlowPermutation::permError="Invalid permutation";
+FlowPermutation[Q_,perm_] /; Sort[perm] == Range@Length@perm :=
+	With[{n = Length@perm},
+		Flow[Q, n, n,
+			Product[FV[k, perm[[k]]+n], {k,1,n}]]];
+FlowPermutation[_,_] := (Message[FlowPermutation::permError]; $Failed);
+
+TLToFlow[TL[c_,m_,n_,v_]] := Flow[c+1, m, n, v/.p_P:>FV@@p];
 
 Flow /: Flow[Q_,m1_,n1_,v1_] \[CircleTimes] Flow[Q_,m2_,n2_,v2_] :=
 	Flow[Q, m1+m2, n1+n2,
