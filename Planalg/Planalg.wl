@@ -387,7 +387,7 @@ SetAttributes[PComb, {Orderless}];
 PComb /: PComb[ps1___] PComb[ps2___] := PComb[ps1, ps2];
 
 PSimplify[TL[c_, m_, n_, v_]] := TL[c, m, n,
-	Collect[(tlEliminateLoops[c, v] /. p_P:>PComb@p), _PComb, FullSimplify] /.
+	Collect[(tlEliminateLoops[c, v] /. p_P:>PComb@p), _PComb, Identity] /.
 		p_PComb:>Times@@p];
 
 PCoeffs[tl_TL] :=
