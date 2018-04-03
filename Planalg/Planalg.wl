@@ -80,7 +80,7 @@ PSimplify::usage="PSimplify[cat] puts the hom into a normal form.";
 
 
 PTr::usage="PTr[element of homset]. Calculates a trace depending on the category.";
-Options[PTr] = {Normalized->True};
+Options[PTr] = {Normalized->False};
 
 
 (* ::Subsection:: *)
@@ -559,7 +559,9 @@ all the indices on each side.";
 FlowPermutation::usage="FlowPermutation[Q, perm] gives the (virtual) flow algebra
 element associated to the permutation mapping {1,2,...,n} to perm.";
 
-TLToFlow::usage="TLToFlow[tl] embeds (virtual) TL[c,n,m] in Flow[c+1,n,m]."
+TLToFlow::usage="TLToFlow[tl] embeds (virtual) TL[c,n,m] in Flow[c+1,n,m].";
+
+FlowAProj::usage="FlowAProj[Flow[Q,n,r,...]] projects onto the A_{n,r} module.";
 
 
 Begin["`Private`Flow`"];
@@ -629,7 +631,7 @@ Flow /: Flow[Q_,l_,m_,v2_] ** Flow[Q_,m_,n_,v1_] :=
 FlowId[Q_, n_] := Flow[Q, n, n, Times@@Table[FV[i, i+n], {i, n}]];
 
 flMakePic[m_,n_,diag_List] := Graphics[Join[
-	{LightRed, EdgeForm[Thin], Rectangle[{0, 0}, {2, Max[m,n]+1}], Black},
+	{LightBlue, EdgeForm[Thin], Rectangle[{0, 0}, {2, Max[m,n]+1}], Black},
 	Join@@MapIndexed[flMakeVertPic[m, n, #2[[1]]/(1+Length@diag)*(1+Max[m,n]), #1]&,
 		diag, {1}]
 ]];
@@ -667,6 +669,11 @@ FlowMakeBasis[Q_,m_,n_,OptionsPattern[]] :=
 			Select[SetPartitions[m+n], AllTrue[#, Length[#]>1&]&]],
 		Flow[Q,m,n,#]&/@flPlanarPartitions[Join[Range[n],Range[n+m,n+1,-1]]]
 	];
+
+FlowAProj[Flow[Q_,n_,r_,v_]]:=Flow[Q, n, r,
+	v /. {
+		fv_FV /; Count[fv, i_/;i<=r]>1 :> 0
+	}];
 
 FlowPoly::notquantum="Use QFlowPoly for the version with crossings.";
 FlowPoly[v_] := Module[{Q}, With[{t=FlowPoly[v,Q]/.{Q->#}}, t&]];
@@ -725,9 +732,9 @@ PScalar[BFlow[_,0,0,val_]] := val;
 
 BFV[] = 1;
 BFV[_] = 0;
-BFV[as___,x_,bs___,x_,cs___] := BFQ[] BFV[cs,as]BFV[bs] - BFV[cs,as,bs];
+BFV[as___,x_,bs___,x_,cs___] := BFQ[] BFV[cs,as]BFV[bs] - BFV[as,bs,cs];
 BFV /: BFV[as___,x_,bs___] BFV[cs___,x_,ds___] :=
-	BFV[bs, as, ds, cs] - BFV[bs, as] BFV[ds, cs];
+	BFV[as, ds, cs, bs] - BFV[as, bs] BFV[cs, ds];
 BFV /: (v_BFV)^2 := v v;
 BFV[a_,bs__] /; AnyTrue[{bs}, #<a&] := 
 	BFV@@RotateLeft[{a,bs},First@Ordering[{bs},1]];
@@ -752,7 +759,7 @@ PTr[BFlow[Q_,m_,m_,v_], OptionsPattern[]] :=
 bflRenumber[v_, f_Function] := Expand[v, _BFV] /. fv_BFV:>(f/@fv);
 
 PDual[BFlow[Q_,m_,n_,v_]] :=
-	BFlow[Q, n, m, bflRenumber[v, If[#<=n, #+m, #-n]&]];
+	BFlow[Q, n, m, bflRenumber[v, If[#<=n, #+m, #-n]&]]/.{b_BFV:>Reverse[b]};
 
 BFlow /: BFlow[Q_,m1_,n1_,v1_] \[CircleTimes] BFlow[Q_,m2_,n2_,v2_] :=
 	BFlow[Q, m1+m2, n1+n2,
@@ -818,7 +825,7 @@ DPart /: DPart[ss1___] DPart[ss2___] := DPart[ss1, ss2];
 dpEliminateEmpties[t_,v_] := Expand[v, _DS] /. DS[] -> t;
 
 PSimplify[DP[t_,m_,n_,v_]] := DP[t,m,n,
-	Collect[(dpEliminateEmpties[t, v] /. d_DS:>DPart@d), _DPart, FullSimplify]
+	Collect[(dpEliminateEmpties[t, v] /. d_DS:>DPart@d), _DPart, Identity]
 	 /. d_DPart:>Times@@d
 ];
 
