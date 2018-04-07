@@ -790,6 +790,95 @@ End[];
 
 
 (* ::Section:: *)
+(*Y category*)
+
+
+(* ::Text:: *)
+(*This is a quantum invariant of virtual spatial graphs. For usual spatial graphs, it is the Yamada polynomial.  For virtual graphs, it is BFlow (the S polynomial) evaluated at Q=(q^(1/2)+q^(-1/2))^2.*)
+
+
+Y::usage="Y[q,m,n,linear combination of Y's with poly(Q)
+coefficients], with n boundary vertices on the right and m on the left.";
+YV::usage="YV[i,j,...] is a ribbon vertex incident to i,j,... in that order.";
+YX::usage="YX[a,b,c,d] is a crossing."
+
+YMakeBasis::usage="BFlowMakeBasis[Q,m,n] gives a basis for the
+homset from n to m over \[DoubleStruckCapitalC](c).";
+
+YId::usage="YId[q,m] is the identity in Y[q,m,m,...].";
+
+
+Begin["`Private`Y`"];
+
+ImpartLinearity[Y, Y[q_,m_,n_,#]&, Y[q,m,n,#]&];
+
+PLeft[Y[_,m_,n_,_]] := m;
+PRight[Y[_,m_,n_,_]] := n;
+
+PScalar[Y[_,0,0,val_]] := val;
+
+YV[] = 1;
+YV[_] = 0;
+YV[as___,x_,bs___,x_,cs___] := YQ[] YV[cs,as]YV[bs] - YV[as,bs,cs];
+YV /: YV[as___,x_,bs___] YV[cs___,x_,ds___] :=
+	YV[as, ds, cs, bs] - YV[as, bs] YV[cs, ds];
+YV /: (v_YV)^2 := v v;
+YV[a_,bs__] /; AnyTrue[{bs}, #<a&] := 
+	YV@@RotateLeft[{a,bs},First@Ordering[{bs},1]];
+
+YX[a_,b_,c_,d_] := YQ[] YV[a,d]YV[b,c] + YQ[]^-1 YV[a,b]YV[c,d] - YV[a,b,c,d];
+
+yEliminateLoops[q_, v_] := Expand[v, _YV] /. YQ[] -> q+2+q^-1;
+
+SetAttributes[YComb, {Orderless}];
+YComb /: YComb[fvs1___] YComb[fvs2___] := YComb[fvs1, fvs2];
+
+PSimplify[Y[q_,m_,n_,v_]] := Y[q, m, n,
+	Collect[(yEliminateLoops[q, v] /. fv_YV:>YComb@fv), _YComb, Identity] /.
+		comb_YComb:>Times@@comb];
+
+PCoeffs[fl_Y] :=
+	Replace[PSimplify@fl, Y[q_,m_,n_,v_]:>
+		Replace[v/.f_YV:>YComb@f, HoldPattern[Plus[t1_,terms___]|t1:Except[0]]:>
+			Map[Replace[#,co_. fc_YComb :> {co, Y[q,m,n,Times@@fc]}]&,{t1,terms}]]];
+	
+PTr[Y[q_,m_,m_,v_], OptionsPattern[]] := 
+	yEliminateLoops[q, Expand[v Times@@Table[YV[i,i+m],{i,m}],_YV]];
+
+yRenumber[v_, f_Function] := Expand[v, _YV] /. fv_YV:>(f/@fv);
+
+PDual[Y[q_,m_,n_,v_]] :=
+	BFlow[q, n, m, yRenumber[v, If[#<=n, #+m, #-n]&]]/.{b_YV:>Reverse[b]};
+
+Y /: Y[Q_,m1_,n1_,v1_] \[CircleTimes] BFlow[Q_,m2_,n2_,v2_] :=
+	Y[Q, m1+m2, n1+n2,
+		yRenumber[v1, If[#<=n1, #, #+n2]&]
+		* yRenumber[v2, If[#<=n2, #+n1, #+n1+m1]&]
+	];
+
+Y /: Y[Q_,l_,m_,v2_] ** Y[Q_,m_,n_,v1_] :=
+	Y[Q, l, n,
+		yRenumber[v2, If[#<=m, #+l+n, #-m+n]&]
+		* yRenumber[v1, If[#<=n, #, #+l]&]
+	] // PSimplify;
+
+YId[Q_, n_] := Y[Q, n, n, Times@@Table[YV[i, i+n], {i, n}]];
+
+permutePartition[partition_List]:= Module[{perm},
+	ReplaceAll[
+		Flatten@Outer[perm[##]&,
+			Sequence@@((Prepend[First@#]/@Permutations@Rest@#)&/@partition),1],
+		p_perm:>List@@p]];
+
+YMakeBasis[Q_,m_,n_] :=
+	Map[Y[Q,m,n,Times@@YV@@@#]&,
+		Sequence@@permutePartition[#]&/@
+		Select[SetPartitions[m+n], AllTrue[#, Length[#]>1&]&]];
+
+End[];
+
+
+(* ::Section:: *)
 (*Deligne partition category*)
 
 
