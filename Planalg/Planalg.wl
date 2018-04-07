@@ -800,7 +800,7 @@ End[];
 Y::usage="Y[q,m,n,linear combination of Y's with poly(Q)
 coefficients], with n boundary vertices on the right and m on the left.";
 YV::usage="YV[i,j,...] is a ribbon vertex incident to i,j,... in that order.";
-YX::usage="YX[a,b,c,d] is a crossing."
+YX::usage="YX[a,b,c,d] is a crossing.";
 
 YMakeBasis::usage="BFlowMakeBasis[Q,m,n] gives a basis for the
 homset from n to m over \[DoubleStruckCapitalC](c).";
@@ -826,7 +826,7 @@ YV /: (v_YV)^2 := v v;
 YV[a_,bs__] /; AnyTrue[{bs}, #<a&] := 
 	YV@@RotateLeft[{a,bs},First@Ordering[{bs},1]];
 
-YX[a_,b_,c_,d_] := YQ[] YV[a,d]YV[b,c] + YQ[]^-1 YV[a,b]YV[c,d] - YV[a,b,c,d];
+YX[a_,b_,c_,d_] := YQ[] YV[a,b]YV[c,d] + YQ[]^-1 YV[a,d]YV[b,c] - YV[a,b,c,d];
 
 yEliminateLoops[q_, v_] := Expand[v, _YV] /. YQ[] -> q+2+q^-1;
 
@@ -874,6 +874,77 @@ YMakeBasis[Q_,m_,n_] :=
 	Map[Y[Q,m,n,Times@@YV@@@#]&,
 		Sequence@@permutePartition[#]&/@
 		Select[SetPartitions[m+n], AllTrue[#, Length[#]>1&]&]];
+
+End[];
+
+
+(* ::Section:: *)
+(*YF category*)
+
+
+(* ::Text:: *)
+(*This is the Fleming-Mellor invariant of virtual spatial graphs.*)
+
+
+YF::usage="YF[q,m,n,linear combination of Y's with poly(Q)
+coefficients], with n boundary vertices on the right and m on the left.";
+YFV::usage="YV[i,j,...] is a ribbon vertex incident to i,j,... in that order.";
+YFX::usage="YX[a,b,c,d] is a crossing.";
+
+
+Begin["`Private`YF`"];
+
+ImpartLinearity[YF, YF[q_,m_,n_,#]&, YF[q,m,n,#]&];
+
+PLeft[YF[_,m_,n_,_]] := m;
+PRight[YF[_,m_,n_,_]] := n;
+
+PScalar[YF[_,0,0,val_]] := val;
+
+SetAttributes[YFV,{Orderless}];
+
+YFV[] = 1;
+YFV[_] = 0;
+HoldPattern[YFV[x_,x_,as___]] := (YFQ[]-1)YFV[as];
+YFV /: HoldPattern[YFV[x_,as___] YFV[x_,bs___]] :=
+	YFV[as, bs] - YFV[as] YFV[bs];
+YFV /: (v_YFV)^2 := v v;
+
+YFX[a_,b_,c_,d_] := YFQ[] YFV[a,b]YFV[c,d] + YFQ[]^-1 YFV[a,d]YFV[b,c] - YFV[a,b,c,d];
+
+yEliminateLoops[q_, v_] := Expand[v, _YFV] /. YFQ[] -> q+2+q^-1;
+
+SetAttributes[YComb, {Orderless}];
+YComb /: YComb[fvs1___] YComb[fvs2___] := YComb[fvs1, fvs2];
+
+PSimplify[YF[q_,m_,n_,v_]] := YF[q, m, n,
+	Collect[(yEliminateLoops[q, v] /. fv_YFV:>YComb@fv), _YComb, Identity] /.
+		comb_YComb:>Times@@comb];
+
+PCoeffs[fl_YF] :=
+	Replace[PSimplify@fl, YF[q_,m_,n_,v_]:>
+		Replace[v/.f_YFV:>YComb@f, HoldPattern[Plus[t1_,terms___]|t1:Except[0]]:>
+			Map[Replace[#,co_. fc_YComb :> {co, YF[q,m,n,Times@@fc]}]&,{t1,terms}]]];
+	
+PTr[YF[q_,m_,m_,v_], OptionsPattern[]] := 
+	yEliminateLoops[q, Expand[v Times@@Table[YFV[i,i+m],{i,m}],_YFV]];
+
+yRenumber[v_, f_Function] := Expand[v, _YFV] /. fv_YFV:>(f/@fv);
+
+PDual[YF[q_,m_,n_,v_]] :=
+	BFlow[q, n, m, yRenumber[v, If[#<=n, #+m, #-n]&]]/.{b_YFV:>Reverse[b]};
+
+YF /: YF[Q_,m1_,n1_,v1_] \[CircleTimes] BFlow[Q_,m2_,n2_,v2_] :=
+	YF[Q, m1+m2, n1+n2,
+		yRenumber[v1, If[#<=n1, #, #+n2]&]
+		* yRenumber[v2, If[#<=n2, #+n1, #+n1+m1]&]
+	];
+
+YF /: YF[Q_,l_,m_,v2_] ** YF[Q_,m_,n_,v1_] :=
+	YF[Q, l, n,
+		yRenumber[v2, If[#<=m, #+l+n, #-m+n]&]
+		* yRenumber[v1, If[#<=n, #, #+l]&]
+	] // PSimplify;
 
 End[];
 
