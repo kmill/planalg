@@ -545,7 +545,7 @@ FV::usage="FV[i,j,...] is a vertex incident to i,j,....";
 
 FlowMakeBasis::usage="FlowMakeBasis[Q,m,n,Virtual->boolean] gives a basis for the
 homset from n to m over \[DoubleStruckCapitalC](c). Virtual is true by default.";
-Options[FlowMakeBasis] = {Virtual->True};
+Options[FlowMakeBasis] = {Virtual->True, Cuttable->False};
 
 FlowId::usage="Flow[Q,m] is the identity in Flow[Q,m,m,...].";
 
@@ -663,12 +663,22 @@ flPlanarPartitions[{s_,ss___}] :=
 				Sequence@@(FV@@this Times@@@Tuples[flPlanarPartitions/@split])]]]
 	, Subsets[{ss}, {1,Length@{ss}}]];
 
-FlowMakeBasis[Q_,m_,n_,OptionsPattern[]] :=
+FlowMakeBasis[Q_,m_,n_,OptionsPattern[]] := Module[{joiner},
+	If[OptionValue[Cuttable],
+		joiner[idxs_] := With[{
+				right=Select[idxs, #<=n&], left=Select[idxs, #>n&]},
+			Which[
+				right=={}, FV@@left,
+				left=={}, FV@@right,
+				True, FV[m+n+1, Sequence@@right] FV[m+n+1, Sequence@@left]]];
+		,
+		joiner[idxs_] := FV@@idxs;
+	];
 	If[OptionValue[Virtual],
-		Map[Flow[Q,m,n,Times@@FV@@@#]&,
+		Map[Flow[Q,m,n,Times@@(joiner/@#)]&,
 			Select[SetPartitions[m+n], AllTrue[#, Length[#]>1&]&]],
 		Flow[Q,m,n,#]&/@flPlanarPartitions[Join[Range[n],Range[n+m,n+1,-1]]]
-	];
+	]];
 
 FlowAProj[Flow[Q_,n_,r_,v_]]:=Flow[Q, n, r,
 	v /. {
@@ -720,6 +730,9 @@ homset from n to m over \[DoubleStruckCapitalC](c).";
 
 BFlowId::usage="BFlow[Q,m] is the identity in BFlow[Q,m,m,...].";
 
+BPermutation::usage="BPermutation[Q,n,perm] gives the BFlow
+element associated to the permutation mapping {1,2,...,n} to perm.";
+
 
 Begin["`Private`BFlow`"];
 
@@ -752,13 +765,17 @@ PCoeffs[fl_BFlow] :=
 	Replace[PSimplify@fl, BFlow[Q_,m_,n_,v_]:>
 		Replace[v/.f_BFV:>BFComb@f, HoldPattern[Plus[t1_,terms___]|t1:Except[0]]:>
 			Map[Replace[#,co_. fc_BFComb :> {co, BFlow[Q,m,n,Times@@fc]}]&,{t1,terms}]]];
-	
-PTr[BFlow[Q_,m_,m_,v_], OptionsPattern[]] := 
-	bflEliminateLoops[Q, Expand[v Times@@Table[BFV[i,i+m],{i,m}],_BFV]];
+
+bflComponents[b_BFlow] := {#[[1]], #[[2]], Count[#[[2]], _BFV, Infinity]}&/@ PCoeffs[b];
+
+PTr[b:BFlow[Q_,m_,m_,v_], OptionsPattern[]] :=
+	If[OptionValue[Normalized],
+		Plus@@(#[[1]] PTr[#[[2]]] Q^#[[3]]&/@bflComponents[b]), (*TODO*)
+		bflEliminateLoops[Q, Expand[v Times@@Table[BFV[i,i+m],{i,m}],_BFV]]];
 
 bflRenumber[v_, f_Function] := Expand[v, _BFV] /. fv_BFV:>(f/@fv);
 
-PDual[BFlow[Q_,m_,n_,v_]] :=
+PDual[BFlow[Q_,m_,n_,v_]] :=(*todo: check if move rule in*)
 	BFlow[Q, n, m, bflRenumber[v, If[#<=n, #+m, #-n]&]]/.{b_BFV:>Reverse[b]};
 
 BFlow /: BFlow[Q_,m1_,n1_,v1_] \[CircleTimes] BFlow[Q_,m2_,n2_,v2_] :=
@@ -785,6 +802,10 @@ BFlowMakeBasis[Q_,m_,n_] :=
 	Map[BFlow[Q,m,n,Times@@BFV@@@#]&,
 		Sequence@@permutePartition[#]&/@
 		Select[SetPartitions[m+n], AllTrue[#, Length[#]>1&]&]];
+
+BPermutation::lengthError="Permutation is not the correct length.";
+BPermutation[Q_,perm_] := With[{n=Length@perm},
+	BFlow[Q,n,n,Product[BFV[k,#[[k]]+n],{k,1,n}]]&@perm];
 
 End[];
 
@@ -819,7 +840,7 @@ PScalar[Y[_,0,0,val_]] := val;
 
 YV[] = 1;
 YV[_] = 0;
-YV[as___,x_,bs___,x_,cs___] := YQ[] YV[cs,as]YV[bs] - YV[as,bs,cs];
+YV[as___,x_,bs___,x_,cs___] := (YQ[]+2+YQ[]^-1)YV[cs,as]YV[bs] - YV[as,bs,cs];
 YV /: YV[as___,x_,bs___] YV[cs___,x_,ds___] :=
 	YV[as, ds, cs, bs] - YV[as, bs] YV[cs, ds];
 YV /: (v_YV)^2 := v v;
@@ -828,7 +849,7 @@ YV[a_,bs__] /; AnyTrue[{bs}, #<a&] :=
 
 YX[a_,b_,c_,d_] := YQ[] YV[a,b]YV[c,d] + YQ[]^-1 YV[a,d]YV[b,c] - YV[a,b,c,d];
 
-yEliminateLoops[q_, v_] := Expand[v, _YV] /. YQ[] -> q+2+q^-1;
+yEliminateLoops[q_, v_] := Expand[v, _YV] /. YQ[] -> q;
 
 SetAttributes[YComb, {Orderless}];
 YComb /: YComb[fvs1___] YComb[fvs2___] := YComb[fvs1, fvs2];
@@ -905,14 +926,14 @@ SetAttributes[YFV,{Orderless}];
 
 YFV[] = 1;
 YFV[_] = 0;
-HoldPattern[YFV[x_,x_,as___]] := (YFQ[]-1)YFV[as];
+HoldPattern[YFV[x_,x_,as___]] := (YFQ[]+1+YFQ[]^-1)YFV[as];
 YFV /: HoldPattern[YFV[x_,as___] YFV[x_,bs___]] :=
 	YFV[as, bs] - YFV[as] YFV[bs];
 YFV /: (v_YFV)^2 := v v;
 
 YFX[a_,b_,c_,d_] := YFQ[] YFV[a,b]YFV[c,d] + YFQ[]^-1 YFV[a,d]YFV[b,c] - YFV[a,b,c,d];
 
-yEliminateLoops[q_, v_] := Expand[v, _YFV] /. YFQ[] -> q+2+q^-1;
+yEliminateLoops[q_, v_] := Expand[v, _YFV] /. YFQ[] -> q;
 
 SetAttributes[YComb, {Orderless}];
 YComb /: YComb[fvs1___] YComb[fvs2___] := YComb[fvs1, fvs2];
@@ -977,7 +998,7 @@ when there is an internal partition.*)
 SetAttributes[DS, {Orderless}];
 DS /: DS[a_, xs___] DS[a_, ys___] := DS[xs, ys];
 DS[a_,a_,xs___] := DS[xs];
-DS /: _DS^2 = DS[];
+DS /: DS[a_, xs___]^2 := DS[xs, xs];
 
 SetAttributes[DPart,{Orderless}];
 DPart /: DPart[ss1___] DPart[ss2___] := DPart[ss1, ss2];
@@ -990,9 +1011,10 @@ PSimplify[DP[t_,m_,n_,v_]] := DP[t,m,n,
 ];
 
 PCoeffs[dp_DP] :=
-	Replace[PSimplify@dp, DP[t_,m_,n_,v_]:>
+	Replace[PSimplify@dp, {DP[_,_,_,0]:>{},
+		DP[t_,m_,n_,v_]:>
 		Replace[v/.ds_DS:>DPart@ds, HoldPattern[Plus[t1_,terms___]|t1:Except[0]]:>
-			Map[Replace[#,co_. dc_DPart :> {co, DP[t,m,n,Times@@dc]}]&,{t1,terms}]]];
+			Map[Replace[#,co_. dc_DPart :> {co, DP[t,m,n,Times@@dc]}]&,{t1,terms}]]}];
 
 (*TODO should this be normalized?*)
 PTr[DP[t_,m_,m_,v_], OptionsPattern[]] := With[
