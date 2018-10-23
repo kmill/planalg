@@ -39,6 +39,16 @@ ClearAll["Planalg`HOMFLYPT`*", "Planalg`HOMFLYPT`*`*"];
 HOMFLYPT::usage="HOMFLYPT[a,z,left signs, right signs, diagrams]";
 HD::usage="HD[i1,j1, i2,j2, i3,j3, ... strands from top to bottom]";
 
+Hmk::usage="Hmk[a,z,m_Integer,n_Integer,_HD] creates a HOMFLYPT, generating signs.";
+Hmk[a_,z_,m_Integer,n_Integer,d_HD] := (
+	If[!SameQ[Length@d,m+n] || Length@Union[List@@d]!=Length@d,
+		Return[$Failed]
+	];
+	HOMFLYPT[a,z,
+		Table[1-2 Mod[FirstPosition[d,i][[1]],2], {i,n+m,n+1,-1}],
+		Table[2 Mod[FirstPosition[d,i][[1]],2]-1, {i,1,n}],
+		d]);
+
 Hright[a_,z_]:=HOMFLYPT[a,z,{1,1},{1,1},HD[1,3, 2,4]];
 Hzero[a_,z_]:=HOMFLYPT[a,z,{1,1},{1,1},HD[1,4, 2,3]];
 Hleft[a_,z_]:=a^2 Hright[a,z] - z a Hzero[a,z];
@@ -51,6 +61,8 @@ Hunknot[a_,z_] := (a-a^-1)/z;
 Hmirror::usage="Hmirror[_HOMFLYPT] does a->a^{-1}, z->-z,
 and reverses all the crossing types";
 Hreverse::usage="Hreverse[_HOMFLYPT] reverses the orientations of each arc";
+
+HOMFLYPTMakeBasis::usage="HOMFLYPTMakeBasis[a,z,sl,sr]";
 
 
 Begin["`Private`HOMFLYPT`"];
@@ -142,7 +154,7 @@ hconnect[exp_,a_Integer,b_Integer] :=
    in boundary and have opposite orientations (in unspecified order) *)
 hjoin[exp_, {}] := exp;
 hjoin[exp_, {{a_,b_},rest___}] :=
-	hjoin[Collect[hconnect[exp, a, b], _HD], {rest}];
+	hjoin[Collect[hconnect[exp, a, b], _HD, Expand], {rest}];
 
 HOMFLYPT /: HOMFLYPT[a_,z_,s1_,s2_,v1_] ** HOMFLYPT[a_,z_,s2_,s3_,v2_] :=
 	HOMFLYPT[a, z, s1, s3, concretizeVars[a,z,hnormalize[
@@ -203,6 +215,19 @@ Hreverse[HOMFLYPT[a_,z_,sl_,sr_,x_]] :=
 	HOMFLYPT[a,z,-sl,-sr, x/. {
 		d_HD :> HD@@Table[d[[i+1-2*Mod[i+1,2]]], {i,Length@d}]
 	}];
+
+HOMFLYPTMakeBasis[a_,z_,sl_,sr_] := Module[
+	{dirs,mkelts,path},
+	dirs=MapIndexed[{#2[[1]],#1}&, Join[sr,-Reverse@sl]];
+	path[i_,d_,opt_] := If[d==1, HD[i,opt[[1]]], HD[opt[[1]],i]];
+	mkelts[{}] := {HD[]};
+	mkelts[{{i_,d_},rest___}] := With[{opts=Select[{rest}, #[[2]]!=d&]},
+		Flatten@Map[Function[opt,
+			Join[path[i,d,opt],#]&/@mkelts[DeleteCases[{rest}, opt]]],
+		opts]
+	];
+	HOMFLYPT[a,z,sl,sr,#]&/@mkelts[dirs]
+];
 
 hMakePic[sl_List,sr_List,d_HD] := Interpretation[
 	With[{m=Length@sl,n=Length@sr},
