@@ -343,7 +343,7 @@ End[];
 
 TL::usage="TL[c,m,n,linear combination of products of P's with
 poly(c) coefficients], with n boundary vertices on the right and m on the left.";
-P::usage="P[i,j] represents an undirected path between i and j.";
+TP::usage="TP[i,j] represents an undirected path between i and j.";
 
 TLId::usage="TLId[c,n] gives the identity in TL[c,n,n,...].";
 TLE::usage="TLE[c,n,i] gives the generator e_i.";
@@ -375,33 +375,33 @@ PRight[TL[_,m_,n_,_]] := n;
 
 PScalar[TL[_,0,0,val_]] := val;
 
-ClearAll[P];
-SetAttributes[P, {Orderless}];
-P[i_, i_] := P[];
-P /: P[i_,j_] P[i_,k_] := P[j,k];
-P /: P[i_,j_]^2 := P[];
+ClearAll[TP];
+SetAttributes[TP, {Orderless}];
+TP[i_, i_] := TP[];
+TP /: TP[i_,j_] TP[i_,k_] := TP[j,k];
+TP /: TP[i_,j_]^2 := TP[];
 
-tlEliminateLoops[c_, v_] := Expand[v, _P] /. P[] -> c;
+tlEliminateLoops[c_, v_] := Expand[v, _TP] /. TP[] -> c;
 
 SetAttributes[PComb, {Orderless}];
 PComb /: PComb[ps1___] PComb[ps2___] := PComb[ps1, ps2];
 
 PSimplify[TL[c_, m_, n_, v_]] := TL[c, m, n,
-	Collect[(tlEliminateLoops[c, v] /. p_P:>PComb@p), _PComb, Identity] /.
+	Collect[(tlEliminateLoops[c, v] /. p_TP:>PComb@p), _PComb, Identity] /.
 		p_PComb:>Times@@p];
 
 PCoeffs[tl_TL] :=
 	Replace[PSimplify@tl, TL[c_,m_,n_,v_]:>
-		Replace[v/.p_P:>PComb@p, HoldPattern[Plus[t1_,terms___]|t1:Except[0]]:>
+		Replace[v/.p_TP:>PComb@p, HoldPattern[Plus[t1_,terms___]|t1:Except[0]]:>
 			Map[Replace[#,co_. pc_PComb :> {co, TL[c,m,n,Times@@pc]}]&,{t1,terms}]]];
 
 (*Markov trace*)
 PTr[TL[c_, m_, m_, v_], OptionsPattern[]] := With[
 	{norm=If[OptionValue[Normalized], c^-m, 1]},
-	norm tlEliminateLoops[c, v Times@@Table[P[i,i+m],{i,m}]]
+	norm tlEliminateLoops[c, v Times@@Table[TP[i,i+m],{i,m}]]
 ];
 
-tlRenumber[v_, f_Function] := Expand[v, _P] /. p_P:>(f/@p);
+tlRenumber[v_, f_Function] := Expand[v, _TP] /. p_TP:>(f/@p);
 
 PDual[TL[c_,m_,n_,v_]] := TL[c, n, m, tlRenumber[v, If[#<=n, #+m, #-n]&]];
 	
@@ -417,11 +417,11 @@ TL /: TL[c_, l_, m_, v2_] ** TL[c_, m_, n_, v1_] :=
 		* tlRenumber[v1, If[#<=n, #, #+l]&]
 	] // PSimplify; (* must simplify to eliminate internal vertices *)
 
-TLId[c_, n_] := TL[c, n, n, Times@@Table[P[i, i+n], {i, n}]];
+TLId[c_, n_] := TL[c, n, n, Times@@Table[TP[i, i+n], {i, n}]];
 
 TLE[c_,n_,i_] /; i<n := TL[c, n, n,
-	Times@@Table[If[j==i || j==i+1, Nothing, P[j, j+n]], {j, n}]
-	* P[i,i+1] P[i+n,i+n+1]
+	Times@@Table[If[j==i || j==i+1, Nothing, TP[j, j+n]], {j, n}]
+	* TP[i,i+1] TP[i+n,i+n+1]
 ];
 
 JWProjector[q_, n_] /; n<=1 := TLId[-QuantumInt[q, 2], n];
@@ -439,7 +439,7 @@ tlMakePic[m_,n_,diag_] := Graphics[Join[
 		Black},
 	tlMakePathPic[m, n, #]&/@diag
 ]];
-tlMakePathPic[m_,n_,P[i_,j_]] := With[{
+tlMakePathPic[m_,n_,TP[i_,j_]] := With[{
 	d = 2 Abs[If[i<=n,i,i-n]-If[j<=n,j,j-n]]/3,
 	w = Max[m,n]},
 	
@@ -455,8 +455,8 @@ tlMakePathPic[m_,n_,P[i_,j_]] := With[{
 ]];
 
 TL /: MakeBoxes[t:TL[c_, m_, n_, v_], f:StandardForm] :=
-	With[{v2 = Expand[v,_P]
-			/.{p_P:>PComb@p}
+	With[{v2 = Expand[v,_TP]
+			/.{p_TP:>PComb@p}
 			/.{p_PComb:>tlMakePic[m,n,List@@p]}},
 		With[{box = RowBox[{"TL", "[", RowBox[{
 				MakeBoxes[c,f], ",", MakeBoxes[m,f], ",", MakeBoxes[n,f],",",
@@ -466,14 +466,14 @@ TL /: MakeBoxes[t:TL[c_, m_, n_, v_], f:StandardForm] :=
 
 tlAllPairs[{}] := {1};
 tlAllPairs[{x_,xs___}] :=
-	ReplaceList[{xs}, {a___,y_,b___} :> Sequence@@(P[x,y] tlAllPairs[{a,b}])];
+	ReplaceList[{xs}, {a___,y_,b___} :> Sequence@@(TP[x,y] tlAllPairs[{a,b}])];
 tlAllPairs[n_Integer] := tlAllPairs[Range[n]];
 
 tlPlanPairs[{}] := {1};
 tlPlanPairs[l_List] /; OddQ[Length[l]] = {};
 tlPlanPairs[{x_,xs___}] :=
 	ReplaceList[{xs}, {a___,y_,b___} :>
-		Sequence@@(P[x,y] Times@@@Tuples[{tlPlanPairs[{a}], tlPlanPairs[{b}]}])];
+		Sequence@@(TP[x,y] Times@@@Tuples[{tlPlanPairs[{a}], tlPlanPairs[{b}]}])];
 
 TLMakeBasis[c_,m_,n_,OptionsPattern[]] := 
 	If[OptionValue[Virtual],
@@ -484,7 +484,7 @@ TLMakeBasis[c_,m_,n_,OptionsPattern[]] :=
 TLPermutation::lengthError="Permutation is not the correct length.";
 TLPermutation[c_,n_,perm_] := 
 	If[n==Length@perm,
-		TL[c,n,n,Product[P[k,#[[k]]+n],{k,1,n}]]&@perm,
+		TL[c,n,n,Product[TP[k,#[[k]]+n],{k,1,n}]]&@perm,
 		Message[TLPermutation::lengthError]; $Failed	
 	];
 
@@ -497,9 +497,9 @@ KauffmanBracket[cat_,A_] := With[{q2=QuantumInt[A^2,2]},
 		AbId[n_] :> TLId[-q2, n],
 		AbB[] :> A TLId[-q2, 2] + A^-1 TLE[-q2, 2, 1],
 		AbBInv[] :> A^-1 TLId[-q2, 2] + A TLE[-q2, 2, 1],
-		AbTrans[] :> TL[-q2,2,2,P[1,4]P[2,3]],
-		AbCup[] :> TL[-q2,2,0,P[1,2]],
-		AbCap[] :> TL[-q2,0,2,P[1,2]],
+		AbTrans[] :> TL[-q2,2,2,TP[1,4]TP[2,3]],
+		AbCup[] :> TL[-q2,2,0,TP[1,2]],
+		AbCap[] :> TL[-q2,0,2,TP[1,2]],
 		_AbV /; Message[KauffmanBracket::abv] :> $Failed
 	}]//PSimplify;
 
@@ -522,13 +522,13 @@ YamadaPoly[cat_, A_] := With[{q2=QuantumInt[A^(1/2),2]},
 			(AbId[1]\[CircleTimes] AbBInv[] \[CircleTimes] AbId[1])
 			** (AbBInv[] \[CircleTimes] AbBInv[])
 			** (AbId[1]\[CircleTimes] AbBInv[] \[CircleTimes] AbId[1]) ,A^(1/4)],
-		AbTrans[] :> sndcol[A,2]**TL[-q2,4,4,P[1,7]P[2,8]P[3,5]P[4,6]],
-		AbCup[] :> (sndcol[A,1]\[CircleTimes]TLId[-q2,2])**TL[-q2,4,0,P[1,4]P[2,3]],
-		AbCap[] :> TL[-q2,0,4,P[1,4]P[2,3]]**(sndcol[A,1]\[CircleTimes]TLId[-q2,2]),
+		AbTrans[] :> sndcol[A,2]**TL[-q2,4,4,TP[1,7]TP[2,8]TP[3,5]TP[4,6]],
+		AbCup[] :> (sndcol[A,1]\[CircleTimes]TLId[-q2,2])**TL[-q2,4,0,TP[1,4]TP[2,3]],
+		AbCap[] :> TL[-q2,0,4,TP[1,4]TP[2,3]]**(sndcol[A,1]\[CircleTimes]TLId[-q2,2]),
 		AbV[m_,n_] :> sndcol[A,m]
 			** TL[-q2,2 m, 2 n,
 				(-q2)^((m+n)/2-1) Times@@Table[
-					P[circToBdr[2m,2n,2i],circToBdr[2m,2n,Mod[2i+1,2(m+n),1]]],{i,m+n}]]
+					TP[circToBdr[2m,2n,2i],circToBdr[2m,2n,Mod[2i+1,2(m+n),1]]],{i,m+n}]]
 			** sndcol[A,n]
 	}]//PSimplify;
 
@@ -614,7 +614,7 @@ FlowPermutation[Q_,perm_] /; Sort[perm] == Range@Length@perm :=
 			Product[FV[k, perm[[k]]+n], {k,1,n}]]];
 FlowPermutation[_,_] := (Message[FlowPermutation::permError]; $Failed);
 
-TLToFlow[TL[c_,m_,n_,v_]] := Flow[c+1, m, n, v/.p_P:>FV@@p];
+TLToFlow[TL[c_,m_,n_,v_]] := Flow[c+1, m, n, v/.p_TP:>FV@@p];
 
 Flow /: Flow[Q_,m1_,n1_,v1_] \[CircleTimes] Flow[Q_,m2_,n2_,v2_] :=
 	Flow[Q, m1+m2, n1+n2,
