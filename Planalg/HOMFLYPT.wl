@@ -150,11 +150,11 @@ hconnect[exp_,a_Integer,b_Integer] :=
 				]
 			]]];
 
-(* second argument is connection plan. each pair must be next to each other
-   in boundary and have opposite orientations (in unspecified order) *)
-hjoin[exp_, {}] := exp;
-hjoin[exp_, {{a_,b_},rest___}] :=
-	hjoin[Collect[hconnect[exp, a, b], _HD, Expand], {rest}];
+(* n is number of things to connect, a and b are starting points to connect,
+   a increases and b decreases. Each pair must have opposite orientations *)
+hjoin[exp_, 0, _, _] := exp;
+hjoin[exp_, n_, a_, b_] :=
+	hjoin[Collect[hconnect[exp, a, b], _HD, Expand], n-1, a+1, b-1];
 
 HOMFLYPT /: HOMFLYPT[a_,z_,s1_,s2_,v1_] ** HOMFLYPT[a_,z_,s2_,s3_,v2_] :=
 	HOMFLYPT[a, z, s1, s3, concretizeVars[a,z,hnormalize[
@@ -165,8 +165,8 @@ HOMFLYPT /: HOMFLYPT[a_,z_,s1_,s2_,v1_] ** HOMFLYPT[a_,z_,s2_,s3_,v2_] :=
 				hjoin[
 					Plus@@Flatten@Outer[#1[[1]]*#2[[1]]*Join[#2[[2]],#1[[2]]] &,
 						uncomb[v1shift], uncomb[hnormalize@v2], 1],
-					Table[{Length@s3+Length@s2-i+1, i+Length@s2+Length@s3},
-						{i,Length@s2}]],
+					Length@s2, Length@s2+Length@s3+1, Length@s2+Length@s3
+					],
 				d_HD :> ReplaceAll[d, i_Integer :>
 							If[i <= Length@s3, i, i-2 Length@s2]]]
 		]]]];
@@ -187,7 +187,8 @@ PSimplify[HOMFLYPT[a_,z_,sl_,sr_,x_]] := HOMFLYPT[a,z,sl,sr,
 PTr[HOMFLYPT[a_,z_,s_,s_,x_]] :=
 	ReplaceAll[
 		concretizeVars[a,z,
-			hjoin[x, Table[{i+Length@s, Length@s+1-i}, {i,Length@s}]]],
+			hjoin[x, Length@s, Length@s+1, Length@s
+			]],
 		{ HD[] -> 1 }] / Hunknot[a,z];
 
 PDual[HOMFLYPT[a_,z_,sl_,sr_,x_]] :=
@@ -263,7 +264,7 @@ hMakePathPic[depth_,m_,n_,{a_,b_}] := With[{
 ];
 
 HOMFLYPT /: MakeBoxes[hom:HOMFLYPT[a_,z_,sl_,sr_,exp_], f:StandardForm] :=
-	With[{exp2 = concretizeVars[a,z,hnormalize[exp]] /. d_HD:>hMakePic[sl,sr,d]},
+	With[{exp2 = concretizeVars[a,z,Collect[exp,_HD]] /. d_HD:>hMakePic[sl,sr,d]},
 	With[{box = RowBox[{"HOMFLYPT", "[",
 			RowBox[{MakeBoxes[a,f], ",", MakeBoxes[z,f], ",",
 				MakeBoxes[sl,f], ",", MakeBoxes[sr,f], ",",
