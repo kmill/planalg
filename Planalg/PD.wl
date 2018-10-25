@@ -3,24 +3,20 @@
 BeginPackage["Planalg`PD`", {"Planalg`"}];
 ClearAll["Planalg`PD`*", "Planalg`PD`*`*"];
 
+(* Example inputs:
 tref=PD[Xp[1,5,2,4],Xp[5,3,6,2],Xp[3,1,4,6]];
 fig8=PD[Xm[1,6,2,7],Xm[5,2,6,3],Xp[3,1,4,8],Xp[7,5,8,4]];
-
-toFrag::usage="";
-fragRot::usage="";
-contiguousQ::usage="";
-contiguousBdry::usage="";
-findBest::usage="";
-doJoins::usage="";
+*)
 
 PDRot::usage="PDRot[elt, n] represents rotating element n counterclockwise";
 PDJoin::usage="PDJoin[elt1, elt2, n] represents joining elements along n inner edges";
 
-MakePDComp::usage="MakePDComp[pd]";
+MakePDComp::usage="MakePDComp[pd] converts to a 'categorical decomposition.'  See
+HOMFLYPT for example usage.";
 
 
 (* ::Text:: *)
-(*Convert an (un)oriented PD into a categorical composition.  This is a tree of Xp, Xm, P, PDRot, and PDJoin.  It is meant to be converted to whatever category one might be interested in.*)
+(*Convert an (un)oriented PD into a categorical composition.  This is a tree of Xp[], Xm[], P[], PDRot[...,n], and PDJoin[...,...,n].  It is meant to be converted to whatever category one might be interested in.*)
 
 
 Begin["`Private`"];
