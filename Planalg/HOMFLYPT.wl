@@ -283,7 +283,8 @@ Hmk[a_,z_,m_Integer,n_Integer,pd_PD] :=
 		Xm[] :> Hmk[a,z,0,4,HD[2,4,1,3]],
 		P[] :> Hmk[a,z,0,2,HD[1,2]],
 		PDJoin[x:HOMFLYPT[_,_,{},sx_,_], y:HOMFLYPT[_,_,{},sy_,_], num_Integer] :> (
-			If[Reverse[sx][[;;num]] != -sy[[;;num]], Return[$Failed]];
+			If[Reverse[sx][[;;num]] != -sy[[;;num]],
+				Print["Internal error. "sx,",",sy,",",num];Return[$Failed]];
 			(x\[CircleTimes]y)**(Hid[a,z,sx[[;;Length@sx-num]]]\[CircleTimes]Hmk[a,z,2num,0,
 				HD@@Flatten[Table[
 					If[sy[[i]]==1, {num+i, num+1-i}, {num+1-i, num+i}]
@@ -295,7 +296,7 @@ Hmk[a_,z_,m_Integer,n_Integer,pd_PD] :=
 		)
 	}],
 	HOMFLYPT[_,_,{},sx_,val_] :> (
-		If[!SameQ[m+n, Length@sx], Return[$Failed]];
+		If[!SameQ[m+n, Length@sx], Print["m+n err. ",sx];Return[$Failed]];
 		HOMFLYPT[a,z,-Reverse[sx[[n+1;;]]],sx[[;;n]],val]
 	)];
 
