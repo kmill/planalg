@@ -27,9 +27,9 @@ Begin["`Private`"];
 
 toFrag[pd_PD] :=
 	List@@pd /. {
-		x_Xp :> frag[List@@x, x],
-		x_Xm :> frag[List@@x, x],
-		p_P :> frag[List@@p, p]
+		x_Xp :> frag[List@@x, Xp[]],
+		x_Xm :> frag[List@@x, Xm[]],
+		p_P :> frag[List@@p, P[]]
 	};
 
 (* rotate counter-clockwise by n *)
@@ -122,7 +122,7 @@ doJoins[frs_List] :=
 
 fragRotMin[f:frag[bdry_,x_]] :=
 	With[{pos=First@Ordering[bdry,1]},
-		fragRot[f,pos-1]];
+		fragRot[f,1-pos]];
 
 MakePDComp[pd_PD] := With[{joins=doJoins[toFrag[pd]]},
 	With[{empties=Cases[joins, frag[{},_]],

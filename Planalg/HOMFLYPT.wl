@@ -227,7 +227,7 @@ hMakePic[sl_List,sr_List,d_HD] := Interpretation[
 	With[{m=Length@sl,n=Length@sr},
 		Graphics[{
 			White,Rectangle[{0,0},{Max[m,n],Max[m,n]+1}],Black,
-			Arrowheads[0.15],
+			Arrowheads[0.12],
 			Table[hMakePathPic[i,m,n,hp[d,i]], {i,Length@d/2,1,-1}],
 			Transparent,EdgeForm[Thin],Rectangle[{0,0}, {Max[m,n],Max[m,n]+1}]
 		}]],
@@ -279,19 +279,19 @@ Hmk[a_,z_,m_Integer,n_Integer,d_HD] := (
 Hmk[a_,z_,m_Integer,n_Integer,pd_PD] :=
 	Replace[
 	ReplaceRepeated[MakePDComp[pd], {
-		Xp[i_,j_,k_,l_] :> Hmk[a,z,0,4,HD[4,2,1,3]],
-		Xm[i_,j_,k_,l_] :> Hmk[a,z,0,4,HD[2,4,1,3]],
-		P[i_,j_] :> Hmk[a,z,0,2,HD[1,2]],
+		Xp[] :> Hmk[a,z,0,4,HD[4,2,1,3]],
+		Xm[] :> Hmk[a,z,0,4,HD[2,4,1,3]],
+		P[] :> Hmk[a,z,0,2,HD[1,2]],
 		PDJoin[x:HOMFLYPT[_,_,{},sx_,_], y:HOMFLYPT[_,_,{},sy_,_], num_Integer] :> (
 			If[Reverse[sx][[;;num]] != -sy[[;;num]], Return[$Failed]];
 			(x\[CircleTimes]y)**(Hid[a,z,sx[[;;Length@sx-num]]]\[CircleTimes]Hmk[a,z,2num,0,
 				HD@@Flatten[Table[
-					If[sx[[num+1-i]]==-1, {num+i, num+1-i}, {num+1-i, num+i}]
+					If[sy[[i]]==1, {num+i, num+1-i}, {num+1-i, num+i}]
 				, {i,num}]]]\[CircleTimes]Hid[a,z,sy[[num+1;;]]])
 		),
 		PDRot[x:HOMFLYPT[_,_,{},sx_,val_], num_Integer] :> (
 			HOMFLYPT[a,z,{},RotateRight[sx,num],val /. h_HD :>
-				Map[Mod[#-num, Length@sx,1]&, h]]
+				Map[Mod[#+num, Length@sx,1]&, h]]
 		)
 	}],
 	HOMFLYPT[_,_,{},sx_,val_] :> (
