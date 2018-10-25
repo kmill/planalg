@@ -133,7 +133,11 @@ X::usage="X[i,j,k,l] is a crossing with V[i,k] the understrand and V[j,l]
 the overstrand.";
 VirtX::usage="VirtX[i,j,k,l] is a virtual crossing of V[i,k] and V[j,l].";
 
-PPath::usage="PPath[i,j] is a path from i to j, in case V[i,j] is different.";
+P::usage="P[i,j] is a path from i to j. For oriented diagrams, the path is oriented.";
+Xp::usage="Xp[i,j,k,l] is a crossing with P[i,k] the understrand
+and P[l,j] the overstrand.";
+Xm::usage="Xm[i,j,k,l] is a crossing with P[i,k] the understrand
+and P[j,l] the overstrand.";
 
 
 Begin["`Private`PD`"];
@@ -282,7 +286,7 @@ activatePPath[0] = AbCup[];
 activatePPath[1] = AbId[1];
 activatePPath[2] = AbCap[];
 
-convert[frontier_List, p_PPath] :=
+convert[frontier_List, p_P] :=
 	With[{
 		f=splitFrontier[frontier, List@@p],
 		pc=Count[p,_?(MemberQ[frontier,#]&)]},
@@ -314,7 +318,7 @@ FromPD[pd_PD, OptionsPattern[]] := Module[{make, fresh},
 			make[rotNCMmul[c[[3]], val, Length@frontier, c[[2]]], c[[1]], Delete[rest, pos]]]];
 	fresh = Max[List@@@List@@pd]+1;
 	make[NonCommutativeMultiply[], OptionValue[Right], pd //. {
-		h_[a___,i_,b___,i_,c___]:>With[{j=fresh++},Sequence@@{PPath[i,j],h[a,i,b,j,c]}]
+		h_[a___,i_,b___,i_,c___]:>With[{j=fresh++},Sequence@@{P[i,j],h[a,i,b,j,c]}]
 	}]//Replace[#,{NonCommutativeMultiply[v_]:>v}]&
 ];
 

@@ -1,6 +1,6 @@
 (* ::Package:: *)
 
-BeginPackage["Planalg`HOMFLYPT`", {"Planalg`"}];
+BeginPackage["Planalg`HOMFLYPT`", {"Planalg`", "Planalg`PD`"}];
 ClearAll["Planalg`HOMFLYPT`*", "Planalg`HOMFLYPT`*`*"];
 
 
@@ -39,15 +39,8 @@ ClearAll["Planalg`HOMFLYPT`*", "Planalg`HOMFLYPT`*`*"];
 HOMFLYPT::usage="HOMFLYPT[a,z,left signs, right signs, diagrams]";
 HD::usage="HD[i1,j1, i2,j2, i3,j3, ... strands from top to bottom]";
 
-Hmk::usage="Hmk[a,z,m_Integer,n_Integer,_HD] creates a HOMFLYPT, generating signs.";
-Hmk[a_,z_,m_Integer,n_Integer,d_HD] := (
-	If[!SameQ[Length@d,m+n] || Length@Union[List@@d]!=Length@d,
-		Return[$Failed]
-	];
-	HOMFLYPT[a,z,
-		Table[1-2 Mod[FirstPosition[d,i][[1]],2], {i,n+m,n+1,-1}],
-		Table[2 Mod[FirstPosition[d,i][[1]],2]-1, {i,1,n}],
-		d]);
+Hmk::usage="Hmk[a,z,m_Integer,n_Integer,_HD|_PD] creates a HOMFLYPT, generating signs.
+For a PD, boundary edges are put in increasing order.";
 
 Hright[a_,z_]:=HOMFLYPT[a,z,{1,1},{1,1},HD[1,3, 2,4]];
 Hzero[a_,z_]:=HOMFLYPT[a,z,{1,1},{1,1},HD[1,4, 2,3]];
@@ -71,7 +64,7 @@ ImpartLinearity[HOMFLYPT, HOMFLYPT[a_,z_,sl_,sr_,#]&, HOMFLYPT[a,z,sl,sr,#]&];
 
 PLeft[HOMFLYPT[_,_,sl_,sr_,_]] := sl;
 PRight[HOMFLYPT[_,_,sl_,sr_,_]] := sr;
-PScalar[HOMFLYPT[a_,z_,{},{},val_]] := concretizeVars[a,z,val]/Hunknot[a,z];
+PScalar[HOMFLYPT[a_,z_,{},{},val_]] := concretizeVars[a,z,val]/Hunknot[a,z]/.HD[] -> 1;
 
 concretizeVars[a_,z_,exp_] := exp/.{Ha[]->a,Hz[]->z};
 
@@ -272,6 +265,40 @@ HOMFLYPT /: MakeBoxes[hom:HOMFLYPT[a_,z_,sl_,sr_,exp_], f:StandardForm] :=
 			}],
 			"]"}]},
 		InterpretationBox[box, hom]]];
+
+
+Hmk[a_,z_,m_Integer,n_Integer,d_HD] := (
+	If[!SameQ[Length@d,m+n] || Length@Union[List@@d]!=Length@d,
+		Return[$Failed]
+	];
+	HOMFLYPT[a,z,
+		Table[1-2 Mod[FirstPosition[d,i][[1]],2], {i,n+m,n+1,-1}],
+		Table[2 Mod[FirstPosition[d,i][[1]],2]-1, {i,1,n}],
+		d]);
+
+Hmk[a_,z_,m_Integer,n_Integer,pd_PD] :=
+	Replace[
+	ReplaceRepeated[MakePDComp[pd], {
+		Xp[i_,j_,k_,l_] :> Hmk[a,z,0,4,HD[4,2,1,3]],
+		Xm[i_,j_,k_,l_] :> Hmk[a,z,0,4,HD[2,4,1,3]],
+		P[i_,j_] :> Hmk[a,z,0,2,HD[1,2]],
+		PDJoin[x:HOMFLYPT[_,_,{},sx_,_], y:HOMFLYPT[_,_,{},sy_,_], num_Integer] :> (
+			If[Reverse[sx][[;;num]] != -sy[[;;num]], Return[$Failed]];
+			(x\[CircleTimes]y)**(Hid[a,z,sx[[;;Length@sx-num]]]\[CircleTimes]Hmk[a,z,2num,0,
+				HD@@Flatten[Table[
+					If[sx[[num+1-i]]==-1, {num+i, num+1-i}, {num+1-i, num+i}]
+				, {i,num}]]]\[CircleTimes]Hid[a,z,sy[[num+1;;]]])
+		),
+		PDRot[x:HOMFLYPT[_,_,{},sx_,val_], num_Integer] :> (
+			HOMFLYPT[a,z,{},RotateRight[sx,num],val /. h_HD :>
+				Map[Mod[#-num, Length@sx,1]&, h]]
+		)
+	}],
+	HOMFLYPT[_,_,{},sx_,val_] :> (
+		If[!SameQ[m+n, Length@sx], Return[$Failed]];
+		HOMFLYPT[a,z,-Reverse[sx[[n+1;;]]],sx[[;;n]],val]
+	)];
+
 
 End[];
 
